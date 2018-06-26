@@ -18,8 +18,5 @@ public class FileRequest {
         private String method;
         private Map<String,String> headers;
         private Map<String,Object> params;
-
-
-
     }
 }
