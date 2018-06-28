@@ -23,14 +23,14 @@ public class OkHttpConnection implements Connection {
 
     @Override
     public @Nullable FileResponse connect(FileRequest fileRequest) {
-        HttpUrl httpUrl = HttpUrl.parse("");
+        HttpUrl httpUrl = HttpUrl.parse(fileRequest.getUrl());
         if (httpUrl != null) {
             httpUrl = httpUrl.newBuilder()
                     .addQueryParameter("", "")
                     .build();
             Request request = new Request.Builder()
                     .url(httpUrl)
-                    .method("", null)
+                    .method(fileRequest.getMethod(), null)
                     .build();
             try {
                 Response response = okHttpClient.newCall(request).execute();
@@ -49,6 +49,4 @@ public class OkHttpConnection implements Connection {
         }
         return null;
     }
-
-
 }

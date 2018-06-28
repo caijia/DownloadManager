@@ -29,6 +29,14 @@ public class FileDownloader {
     private FileDownloader(Builder builder) {
         this.connection = builder.connection;
         this.threadCount = builder.threadCount;
+        if (this.connection == null) {
+            this.connection = new OkHttpConnection();
+        }
+
+        if (this.threadCount < 1 || this.threadCount > 5) {
+            this.threadCount = 3;
+        }
+
         executorService = Executors.newFixedThreadPool(threadCount);
         handler = new InternalHandler(this);
     }
@@ -42,7 +50,7 @@ public class FileDownloader {
             @Override
             public void run() {
                 try {
-                    FileRequest headRequest = fileRequest.newBuilder().method("HEAD").build();
+                    FileRequest headRequest = fileRequest.newBuilder().method("GET").build();
                     FileResponse response = connection.connect(headRequest);
                     if (response != null) {
                         Map<String, List<String>> headers = response.getHeaders();
@@ -51,6 +59,7 @@ public class FileDownloader {
                     }
 
                 } catch (Exception e) {
+                    e.printStackTrace();
 //                    executorService.submit(this);
                 }
             }
@@ -59,7 +68,7 @@ public class FileDownloader {
     }
 
     private void realDownload(long contentLength) {
-
+        System.out.println(contentLength);
     }
 
     private static class InternalHandler extends Handler {
