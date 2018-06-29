@@ -4,9 +4,12 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.support.annotation.IntRange;
+import android.text.TextUtils;
+import android.util.Log;
 
+import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -15,12 +18,16 @@ import java.util.concurrent.Executors;
  */
 public class FileDownloader {
 
-    private static final int MSG_GET_LENGTH = 1;
+    private static final String TAG = "FileDownloader";
+
+    private static final int MSG_DOWNLOAD_FILE_INFO = 1;
     private Connection connection;
-    private @IntRange(from = 1, to = 5)
-    int threadCount = 3;
+    private int threadCount = 3;
     private ExecutorService executorService;
     private InternalHandler handler;
+    private FileRequest fileRequest;
+    private String saveFileDirPath;
+    private List<DownloadCallable> downloadCallables = new ArrayList<>();
 
     private FileDownloader() {
 
@@ -29,6 +36,7 @@ public class FileDownloader {
     private FileDownloader(Builder builder) {
         this.connection = builder.connection;
         this.threadCount = builder.threadCount;
+        this.saveFileDirPath = builder.saveFileDirPath;
         if (this.connection == null) {
             this.connection = new OkHttpConnection();
         }
@@ -37,38 +45,93 @@ public class FileDownloader {
             this.threadCount = 3;
         }
 
-        executorService = Executors.newFixedThreadPool(threadCount);
+        executorService = Executors.newCachedThreadPool();
         handler = new InternalHandler(this);
     }
 
     public void download(FileRequest fileRequest) {
-        requestContentLength(fileRequest);
+        this.fileRequest = fileRequest;
+        requestDownFileInfo();
     }
 
-    private void requestContentLength(final FileRequest fileRequest) {
+    private void requestDownFileInfo() {
         Runnable runnable = new Runnable() {
             @Override
             public void run() {
                 try {
-                    FileRequest headRequest = fileRequest.newBuilder().method("GET").build();
+                    FileRequest headRequest = fileRequest.newBuilder()
+                            .method(HttpMethod.GET)
+                            .build();
                     FileResponse response = connection.connect(headRequest);
                     if (response != null) {
-                        Map<String, List<String>> headers = response.getHeaders();
-                        long contentLength = HttpUtils.contentLength(headers);
-                        handler.sendMessage(handler.obtainMessage(MSG_GET_LENGTH, contentLength));
+                        long fileSize = response.getContentLength();
+                        String fileName = response.getFileName();
+                        DownloadFileInfo downloadFile = new DownloadFileInfo(fileName, fileSize);
+                        Message message = handler.obtainMessage(MSG_DOWNLOAD_FILE_INFO, downloadFile);
+                        handler.sendMessage(message);
                     }
 
                 } catch (Exception e) {
                     e.printStackTrace();
-//                    executorService.submit(this);
+                    //todo retry
                 }
             }
         };
         executorService.submit(runnable);
     }
 
-    private void realDownload(long contentLength) {
-        System.out.println(contentLength);
+    /**
+     * length = 10 , threadCount = 3; Range:bytes=0-9; avg = 10 / 3 = 3 ;
+     * thread[0] = 0-3 , thread[1] = 4-7,thread[2] = 8-(length - 1)
+     *
+     * @param downloadFile
+     */
+    private void realDownload(DownloadFileInfo downloadFile) {
+        if (downloadFile == null) {
+            return;
+        }
+
+        long fileSize = downloadFile.fileSize;
+        String fileName = downloadFile.fileName;
+
+        if (fileSize < 0) {
+            Log.w(TAG, "download file size < 0");
+            return;
+        }
+
+        if (TextUtils.isEmpty(fileName)) {
+            Log.w(TAG, "download file name is null");
+            return;
+        }
+
+        File saveFileDir = new File(saveFileDirPath);
+        saveFileDir.mkdirs();
+        File saveFile = new File(saveFileDir, fileName);
+
+        long avgLength = fileSize / threadCount;
+        for (int i = 0; i < threadCount; i++) {
+            long startPosition = i + i * avgLength;
+            long endPosition = i == threadCount - 1 ? fileSize : startPosition + avgLength;
+            DownloadCallable downloadCallable = new DownloadCallable(
+                    saveFile, connection, fileRequest, startPosition, endPosition, i);
+            downloadCallables.add(downloadCallable);
+        }
+
+        try {
+            executorService.invokeAll(downloadCallables);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static class DownloadFileInfo {
+        private String fileName;
+        private long fileSize;
+
+        public DownloadFileInfo(String fileName, long fileSize) {
+            this.fileName = fileName;
+            this.fileSize = fileSize;
+        }
     }
 
     private static class InternalHandler extends Handler {
@@ -83,9 +146,9 @@ public class FileDownloader {
         @Override
         public void handleMessage(Message msg) {
             switch (msg.what) {
-                case MSG_GET_LENGTH: {
-                    long contentLength = (long) msg.obj;
-                    fileDownloader.realDownload(contentLength);
+                case MSG_DOWNLOAD_FILE_INFO: {
+                    DownloadFileInfo downloadFile = (DownloadFileInfo) msg.obj;
+                    fileDownloader.realDownload(downloadFile);
                     break;
                 }
             }
@@ -96,8 +159,9 @@ public class FileDownloader {
 
         private Connection connection;
 
-        private @IntRange(from = 1, to = 5)
-        int threadCount;
+        private int threadCount;
+
+        private String saveFileDirPath;
 
         public Builder connection(Connection connection) {
             this.connection = connection;
@@ -106,6 +170,11 @@ public class FileDownloader {
 
         public Builder threadCount(@IntRange(from = 1, to = 5) int threadCount) {
             this.threadCount = threadCount;
+            return this;
+        }
+
+        public Builder saveFileDirPath(String saveFileDirPath) {
+            this.saveFileDirPath = saveFileDirPath;
             return this;
         }
 

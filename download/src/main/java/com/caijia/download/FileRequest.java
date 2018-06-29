@@ -13,9 +13,11 @@ import java.util.Map;
 public class FileRequest {
 
     private String url;
-    private String method;
+    private HttpMethod method;
     private Map<String, List<String>> headers;
     private Map<String, List<String>> queryParams;
+    private Map<String, List<String>> fieldParams;
+    private String bodyJsonString;
 
     private FileRequest() {
 
@@ -26,17 +28,27 @@ public class FileRequest {
         this.method = builder.method;
         this.headers = builder.headers;
         this.queryParams = builder.queryParams;
+        this.fieldParams = builder.fieldParams;
+        this.bodyJsonString = builder.bodyJsonString;
+
+        if (TextUtils.isEmpty(url)) {
+            throw new RuntimeException("url is null");
+        }
+
+        if (this.method == null) {
+            this.method = HttpMethod.GET;
+        }
     }
 
     public static FileRequest toSampleRequest(String url) {
-        return new Builder().method("GET").url(url).build();
+        return new Builder().method(HttpMethod.GET).url(url).build();
     }
 
     public String getUrl() {
         return url;
     }
 
-    public String getMethod() {
+    public HttpMethod getMethod() {
         return method;
     }
 
@@ -48,8 +60,12 @@ public class FileRequest {
         return queryParams;
     }
 
-    public void setQueryParams(Map<String, List<String>> queryParams) {
-        this.queryParams = queryParams;
+    public Map<String, List<String>> getFieldParams() {
+        return fieldParams;
+    }
+
+    public String getBodyJsonString() {
+        return bodyJsonString;
     }
 
     public Builder newBuilder() {
@@ -58,9 +74,11 @@ public class FileRequest {
 
     public static class Builder {
         private String url;
-        private String method;
+        private HttpMethod method;
         private Map<String, List<String>> headers;
         private Map<String, List<String>> queryParams;
+        private Map<String, List<String>> fieldParams;
+        private String bodyJsonString;
 
         public Builder() {
         }
@@ -70,6 +88,8 @@ public class FileRequest {
             this.method = fileRequest.method;
             this.headers = fileRequest.headers;
             this.queryParams = fileRequest.queryParams;
+            this.fieldParams = fileRequest.fieldParams;
+            this.bodyJsonString = fileRequest.bodyJsonString;
         }
 
         public Builder url(String url) {
@@ -77,8 +97,13 @@ public class FileRequest {
             return this;
         }
 
-        public Builder method(String method) {
+        public Builder method(HttpMethod method) {
             this.method = method;
+            return this;
+        }
+
+        public Builder bodyJsonString(String bodyString) {
+            this.bodyJsonString = bodyString;
             return this;
         }
 
@@ -86,7 +111,7 @@ public class FileRequest {
             if (TextUtils.isEmpty(key) || TextUtils.isEmpty(value)) {
                 return this;
             }
-            setValue(key, value, headers);
+            headers = setValue(key, value, headers);
             return this;
         }
 
@@ -99,24 +124,42 @@ public class FileRequest {
             return this;
         }
 
-        public Builder params(String key, String value) {
+        public Builder queryParams(String key, String value) {
             if (TextUtils.isEmpty(key) || TextUtils.isEmpty(value)) {
                 return this;
             }
-            setValue(key, value, queryParams);
+            queryParams = setValue(key, value, queryParams);
             return this;
         }
 
-        public Builder params(String key, List<String> values) {
+        public Builder queryParams(String key, List<String> values) {
             if (!TextUtils.isEmpty(key) && values != null && !values.isEmpty()) {
                 for (String value : values) {
-                    header(key, value);
+                    queryParams(key, value);
                 }
             }
             return this;
         }
 
-        private void setValue(String key, String value, Map<String, List<String>> params) {
+        public Builder fieldParams(String key, String value) {
+            if (TextUtils.isEmpty(key) || TextUtils.isEmpty(value)) {
+                return this;
+            }
+            fieldParams = setValue(key, value, fieldParams);
+            return this;
+        }
+
+        public Builder fieldParams(String key, List<String> values) {
+            if (!TextUtils.isEmpty(key) && values != null && !values.isEmpty()) {
+                for (String value : values) {
+                    fieldParams(key, value);
+                }
+            }
+            return this;
+        }
+
+        private Map<String, List<String>> setValue(String key, String value,
+                                                   Map<String, List<String>> params) {
             if (params == null) {
                 params = new HashMap<>();
             }
@@ -127,6 +170,7 @@ public class FileRequest {
                 params.put(key, values);
             }
             values.add(value);
+            return params;
         }
 
         public FileRequest build() {
