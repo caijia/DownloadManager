@@ -1,8 +1,5 @@
 package com.caijia.download;
 
-import android.text.TextUtils;
-
-import java.io.File;
 import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
@@ -40,6 +37,7 @@ public class FileResponse {
 
     public void setRealDownloadUrl(String realDownloadUrl) {
         this.realDownloadUrl = realDownloadUrl;
+        Utils.log(realDownloadUrl);
     }
 
     public long getContentLength() {
@@ -54,11 +52,18 @@ public class FileResponse {
 
     public String getFileName() {
         String disposition = Utils.getHeader("Content-Disposition", headers);
-        if (!TextUtils.isEmpty(disposition)) {
+        if (!Utils.isEmpty(disposition)) {
             Matcher m = Pattern.compile(".*filename=(.*)").matcher(disposition.toLowerCase());
             if (m.find()) return m.group(1);
+
         } else {
-            return realDownloadUrl.substring(realDownloadUrl.lastIndexOf(File.separator) + 1);
+            int pathIndex = realDownloadUrl.lastIndexOf("\\");
+            if (pathIndex == -1) {
+                pathIndex = realDownloadUrl.lastIndexOf("/");
+            }
+            int whatIndex = realDownloadUrl.indexOf("?", pathIndex);
+            return realDownloadUrl.substring(pathIndex + 1,
+                    whatIndex == -1 ? realDownloadUrl.length() : whatIndex);
         }
         return Utils.getMD5(realDownloadUrl) + ".temp";//默认取一个文件名;
     }

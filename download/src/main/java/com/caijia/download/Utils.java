@@ -1,7 +1,5 @@
 package com.caijia.download;
 
-import android.text.TextUtils;
-
 import java.security.MessageDigest;
 import java.util.List;
 import java.util.Map;
@@ -24,7 +22,7 @@ public class Utils {
     }
 
     public static String getHeader(String key,Map<String, List<String>> headers) {
-        if (headers == null || headers.isEmpty() || TextUtils.isEmpty(key)) {
+        if (headers == null || headers.isEmpty() || Utils.isEmpty(key)) {
             return "";
         }
 
@@ -61,20 +59,11 @@ public class Utils {
         }
     }
 
-    public static String mapToString(Map<String, List<String>> map) {
-        if (map == null || map.isEmpty()) {
-            return "";
-        }
-        StringBuilder sb = new StringBuilder();
-        for (Map.Entry<String, List<String>> entry : map.entrySet()) {
-            String key = entry.getKey();
-            List<String> values = entry.getValue();
-            if (values != null && !values.isEmpty()) {
-                for (String value : values) {
-                    sb.append(key).append(":").append(value);
-                }
-            }
-        }
-        return sb.toString();
+    public static boolean isEmpty(String s) {
+        return s == null || s.length() == 0;
+    }
+
+    public static void log(String msg) {
+        System.out.println(msg);
     }
 }

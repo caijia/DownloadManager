@@ -3,7 +3,6 @@ package com.caijia.download;
 import java.io.File;
 import java.io.InputStream;
 import java.io.RandomAccessFile;
-import java.text.MessageFormat;
 import java.util.concurrent.Callable;
 
 /**
@@ -17,21 +16,21 @@ public class DownloadCallable implements Callable<Boolean> {
     private int threadIndex;
     private File saveFile;
     private Connection connection;
+    private long startPosition;
 
-    public DownloadCallable(File saveFile,Connection connection,FileRequest fileRequest,
+    public DownloadCallable(File saveFile, Connection connection, FileRequest fileRequest,
                             long startPosition, long endPosition, int threadIndex) {
         this.fileRequest = fileRequest;
         this.threadIndex = threadIndex;
         this.connection = connection;
         this.saveFile = saveFile;
+        this.startPosition = startPosition;
 
         this.fileRequest = fileRequest.newBuilder()
-                .header("Range", convertRangeHeader(startPosition,endPosition))
+                .header("Range", "bytes=" + startPosition + "-" + endPosition)
                 .build();
-    }
-
-    private String convertRangeHeader(long startPosition, long endPosition) {
-        return MessageFormat.format("bytes={0}-{1}", startPosition, endPosition);
+        Utils.log("startPosition = " + startPosition
+                + "--endPosition=" + endPosition + "threadIndex = " + threadIndex);
     }
 
     @Override
@@ -50,28 +49,33 @@ public class DownloadCallable implements Callable<Boolean> {
 
     /**
      * write data to file
+     *
      * @param inStream
      * @return code  error = -1, right = 0
      */
     private int writeData(InputStream inStream) {
-        RandomAccessFile outStream = null;
         int code = 0;
+        RandomAccessFile partFile = null;
         try {
-             outStream = new RandomAccessFile(saveFile, "rws");
+            partFile = new RandomAccessFile(saveFile, "rws");
+            partFile.seek(startPosition);
             byte[] buffer = new byte[BUFFER_SIZE];
             int len;
+            int totalLength = 0;
             while ((len = inStream.read(buffer)) != -1) {
-                outStream.write(buffer, 0, len);
+                partFile.write(buffer, 0, len);
+                totalLength += len;
             }
+            Utils.log("threadIndex=" + threadIndex + "---complete--" + totalLength);
 
         } catch (Exception e) {
+            e.printStackTrace();
             code = -1;
 
-        }finally {
-
+        } finally {
             try {
-                if (outStream != null) {
-                    outStream.close();
+                if (partFile != null) {
+                    partFile.close();
                 }
 
                 if (inStream != null) {
@@ -79,6 +83,7 @@ public class DownloadCallable implements Callable<Boolean> {
                 }
 
             } catch (Exception e) {
+                e.printStackTrace();
                 code = -1;
             }
         }

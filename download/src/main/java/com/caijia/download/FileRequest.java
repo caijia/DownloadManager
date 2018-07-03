@@ -1,7 +1,5 @@
 package com.caijia.download;
 
-import android.text.TextUtils;
-
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -31,7 +29,7 @@ public class FileRequest {
         this.fieldParams = builder.fieldParams;
         this.bodyJsonString = builder.bodyJsonString;
 
-        if (TextUtils.isEmpty(url)) {
+        if (Utils.isEmpty(url)) {
             throw new RuntimeException("url is null");
         }
 
@@ -108,7 +106,7 @@ public class FileRequest {
         }
 
         public Builder header(String key, String value) {
-            if (TextUtils.isEmpty(key) || TextUtils.isEmpty(value)) {
+            if (Utils.isEmpty(key) || Utils.isEmpty(value)) {
                 return this;
             }
             headers = setValue(key, value, headers);
@@ -116,7 +114,7 @@ public class FileRequest {
         }
 
         public Builder header(String key, List<String> values) {
-            if (!TextUtils.isEmpty(key) && values != null && !values.isEmpty()) {
+            if (!Utils.isEmpty(key) && values != null && !values.isEmpty()) {
                 for (String value : values) {
                     header(key, value);
                 }
@@ -125,7 +123,7 @@ public class FileRequest {
         }
 
         public Builder queryParams(String key, String value) {
-            if (TextUtils.isEmpty(key) || TextUtils.isEmpty(value)) {
+            if (Utils.isEmpty(key) || Utils.isEmpty(value)) {
                 return this;
             }
             queryParams = setValue(key, value, queryParams);
@@ -133,7 +131,7 @@ public class FileRequest {
         }
 
         public Builder queryParams(String key, List<String> values) {
-            if (!TextUtils.isEmpty(key) && values != null && !values.isEmpty()) {
+            if (!Utils.isEmpty(key) && values != null && !values.isEmpty()) {
                 for (String value : values) {
                     queryParams(key, value);
                 }
@@ -142,7 +140,7 @@ public class FileRequest {
         }
 
         public Builder fieldParams(String key, String value) {
-            if (TextUtils.isEmpty(key) || TextUtils.isEmpty(value)) {
+            if (Utils.isEmpty(key) || Utils.isEmpty(value)) {
                 return this;
             }
             fieldParams = setValue(key, value, fieldParams);
@@ -150,7 +148,7 @@ public class FileRequest {
         }
 
         public Builder fieldParams(String key, List<String> values) {
-            if (!TextUtils.isEmpty(key) && values != null && !values.isEmpty()) {
+            if (!Utils.isEmpty(key) && values != null && !values.isEmpty()) {
                 for (String value : values) {
                     fieldParams(key, value);
                 }

@@ -4,10 +4,10 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.support.annotation.IntRange;
-import android.text.TextUtils;
-import android.util.Log;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -18,13 +18,11 @@ import java.util.concurrent.Executors;
  */
 public class FileDownloader {
 
-    private static final String TAG = "FileDownloader";
-
     private static final int MSG_DOWNLOAD_FILE_INFO = 1;
     private Connection connection;
     private int threadCount = 3;
     private ExecutorService executorService;
-    private InternalHandler handler;
+    //    private InternalHandler handler;
     private FileRequest fileRequest;
     private String saveFileDirPath;
     private List<DownloadCallable> downloadCallables = new ArrayList<>();
@@ -45,8 +43,12 @@ public class FileDownloader {
             this.threadCount = 3;
         }
 
+        if (Utils.isEmpty(saveFileDirPath)) {
+//            this.saveFileDirPath = Environment.getExternalStorageDirectory().getAbsolutePath();
+        }
+
         executorService = Executors.newCachedThreadPool();
-        handler = new InternalHandler(this);
+//        handler = new InternalHandler(this);
     }
 
     public void download(FileRequest fileRequest) {
@@ -67,13 +69,13 @@ public class FileDownloader {
                         long fileSize = response.getContentLength();
                         String fileName = response.getFileName();
                         DownloadFileInfo downloadFile = new DownloadFileInfo(fileName, fileSize);
-                        Message message = handler.obtainMessage(MSG_DOWNLOAD_FILE_INFO, downloadFile);
-                        handler.sendMessage(message);
+//                        Message message = handler.obtainMessage(MSG_DOWNLOAD_FILE_INFO, downloadFile);
+//                        handler.sendMessage(message);
+                        realDownload(downloadFile);
                     }
 
                 } catch (Exception e) {
                     e.printStackTrace();
-                    //todo retry
                 }
             }
         };
@@ -95,33 +97,84 @@ public class FileDownloader {
         String fileName = downloadFile.fileName;
 
         if (fileSize < 0) {
-            Log.w(TAG, "download file size < 0");
+            Utils.log("download file size < 0");
             return;
         }
 
-        if (TextUtils.isEmpty(fileName)) {
-            Log.w(TAG, "download file name is null");
+        if (Utils.isEmpty(fileName)) {
+            Utils.log("download file name is null");
             return;
-        }
-
-        File saveFileDir = new File(saveFileDirPath);
-        saveFileDir.mkdirs();
-        File saveFile = new File(saveFileDir, fileName);
-
-        long avgLength = fileSize / threadCount;
-        for (int i = 0; i < threadCount; i++) {
-            long startPosition = i + i * avgLength;
-            long endPosition = i == threadCount - 1 ? fileSize : startPosition + avgLength;
-            DownloadCallable downloadCallable = new DownloadCallable(
-                    saveFile, connection, fileRequest, startPosition, endPosition, i);
-            downloadCallables.add(downloadCallable);
         }
 
         try {
+            File saveFileDir = new File(saveFileDirPath);
+            saveFileDir.mkdirs();
+            File file = new File(saveFileDir, fileName);
+            if (!file.exists()) {
+                file.createNewFile();
+            }
+            Utils.log(file.getAbsolutePath());
+            RandomAccessFile saveFile = new RandomAccessFile(file, "r");
+//            saveFile.setLength(fileSize);
+            int read = saveFile.read();
+            Utils.log("read = "+read);
+
+            if (fileSize < threadCount) {
+                threadCount = (int) fileSize;
+            }
+
+            long avgLength = fileSize / threadCount;
+            for (int i = 0; i < threadCount; i++) {
+                long startPosition = i + i * avgLength;
+                long endPosition = i == threadCount - 1 ? fileSize - 1 : startPosition + avgLength;
+                long currentPosition = computeCurrentPosition(startPosition, endPosition, saveFile);
+                DownloadCallable downloadCallable = new DownloadCallable(
+                        file, connection, fileRequest, currentPosition, endPosition, i);
+                downloadCallables.add(downloadCallable);
+            }
+
             executorService.invokeAll(downloadCallables);
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    /**
+     * mid = startPosition + (endPosition - startPosition) >> 2;
+     * 0 - 10, currentPosition = 7,
+     * [0 - 10]  mid = 5 has bytes
+     * [6 - 10]  mid = 8 no bytes
+     * [6 - 7]   mid = 6 has bytes
+     * [7 - 7]   mid = 7 no bytes
+     * [8 -7 ] break
+     *
+     * @param startPosition
+     * @param endPosition
+     * @param saveFile
+     * @return
+     */
+    private long computeCurrentPosition(long startPosition, long endPosition,
+                                        RandomAccessFile saveFile) {
+        Utils.log("startPosition = " + startPosition);
+        long mid = 0;
+        try {
+            while (startPosition <= endPosition) {
+                 mid = startPosition + (endPosition - startPosition) / 2;
+                saveFile.seek(mid);
+                int read = saveFile.read();
+                if (read == -1) { //no byte
+                    endPosition = mid - 1;
+
+                } else {
+                    startPosition = mid + 1;
+                }
+            Utils.log("read = " + read + "--mid = " + mid);
+            }
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return mid + 1;
     }
 
     private static class DownloadFileInfo {

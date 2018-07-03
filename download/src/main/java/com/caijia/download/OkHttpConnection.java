@@ -1,9 +1,5 @@
 package com.caijia.download;
 
-import android.support.annotation.Nullable;
-import android.text.TextUtils;
-
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -35,8 +31,7 @@ public class OkHttpConnection implements Connection {
     }
 
     @Override
-    public @Nullable
-    FileResponse connect(FileRequest fileRequest) {
+    public FileResponse connect(FileRequest fileRequest) {
         HttpUrl httpUrl = HttpUrl.parse(fileRequest.getUrl());
         if (httpUrl == null) {
             return null;
@@ -66,7 +61,7 @@ public class OkHttpConnection implements Connection {
         //body
         RequestBody requestBody;
         String bodyJsonString = fileRequest.getBodyJsonString();
-        if (!TextUtils.isEmpty(bodyJsonString)) {
+        if (!Utils.isEmpty(bodyJsonString)) {
             requestBody = RequestBody.create(JSON_CONTENT_TYPE, bodyJsonString);
 
         } else {
@@ -96,7 +91,7 @@ public class OkHttpConnection implements Connection {
                 }
                 return fileResponse;
             }
-        } catch (IOException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
         return null;
