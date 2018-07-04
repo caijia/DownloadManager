@@ -21,7 +21,7 @@ public class Utils {
         return !(method.equals("GET") || method.equals("HEAD"));
     }
 
-    public static String getHeader(String key,Map<String, List<String>> headers) {
+    public static String getHeader(String key, Map<String, List<String>> headers) {
         if (headers == null || headers.isEmpty() || Utils.isEmpty(key)) {
             return "";
         }
@@ -82,5 +82,16 @@ public class Utils {
             }
         }
         return sb.toString();
+    }
+
+    public static String fileRequestToMd5String(FileRequest request, int threadCount) {
+        String sb = request.getUrl()
+                + request.getMethod()
+                + request.getBodyJsonString()
+                + mapToString(request.getQueryParams())
+                + mapToString(request.getFieldParams())
+                + mapToString(request.getHeaders())
+                + threadCount;
+        return getMD5(sb);
     }
 }

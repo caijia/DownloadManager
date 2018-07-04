@@ -18,6 +18,7 @@ public class DownloadCallable implements Callable<Boolean> {
     private Connection connection;
     private long startPosition;
     private long endPosition;
+    private int threadCount;
     private BreakPointManager breakPointManager;
 
     public DownloadCallable(File saveFileDir, String fileName, long fileSize, Connection connection,
@@ -27,6 +28,7 @@ public class DownloadCallable implements Callable<Boolean> {
         this.fileRequest = fileRequest;
         this.threadIndex = threadIndex;
         this.connection = connection;
+        this.threadCount = threadCount;
         this.breakPointManager = breakPointManager;
 
         long avgLength = fileSize / threadCount;
@@ -36,7 +38,7 @@ public class DownloadCallable implements Callable<Boolean> {
         saveFile = new File(saveFileDir, fileName);
         startPosition = breakPointManager.getBreakPoint(startPosition,
                 endPosition, saveFile.getAbsolutePath(), threadIndex, fileName,
-                fileSize, fileRequest);
+                fileSize, fileRequest,threadCount);
 
         this.fileRequest = fileRequest.newBuilder()
                 .header("Range", "bytes=" + startPosition + "-" + endPosition)
@@ -75,7 +77,7 @@ public class DownloadCallable implements Callable<Boolean> {
         RandomAccessFile partFile = null;
         long start = System.currentTimeMillis();
         try {
-            partFile = new RandomAccessFile(saveFile, "rws");
+            partFile = new RandomAccessFile(saveFile, "rw");
             partFile.seek(startPosition);
             byte[] buffer = new byte[BUFFER_SIZE];
             int len;
@@ -84,7 +86,8 @@ public class DownloadCallable implements Callable<Boolean> {
                 partFile.write(buffer, 0, len);
                 downloadSize += len;
                 breakPointManager.saveBreakPoint(threadIndex, downloadSize,
-                        saveFile.getAbsolutePath(), startPosition, endPosition, fileRequest);
+                        saveFile.getAbsolutePath(), startPosition, endPosition,
+                        fileRequest,threadCount);
             }
             Utils.log("threadIndex=" + threadIndex + "---complete--" + downloadSize
                     + "--time = " + (System.currentTimeMillis() - start));
