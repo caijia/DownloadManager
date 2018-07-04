@@ -17,30 +17,47 @@ public class DownloadCallable implements Callable<Boolean> {
     private File saveFile;
     private Connection connection;
     private long startPosition;
+    private long endPosition;
+    private BreakPointManager breakPointManager;
 
-    public DownloadCallable(File saveFile, Connection connection, FileRequest fileRequest,
-                            long startPosition, long endPosition, int threadIndex) {
+    public DownloadCallable(File saveFileDir, String fileName, long fileSize, Connection connection,
+                            FileRequest fileRequest, int threadIndex, int threadCount,
+                            BreakPointManager breakPointManager) {
+
         this.fileRequest = fileRequest;
         this.threadIndex = threadIndex;
         this.connection = connection;
-        this.saveFile = saveFile;
-        this.startPosition = startPosition;
+        this.breakPointManager = breakPointManager;
+
+        long avgLength = fileSize / threadCount;
+        startPosition = threadIndex + threadIndex * avgLength;
+        endPosition = threadIndex == threadCount - 1 ? fileSize - 1 : startPosition + avgLength;
+
+        saveFile = new File(saveFileDir, fileName);
+        startPosition = breakPointManager.getBreakPoint(startPosition,
+                endPosition, saveFile.getAbsolutePath(), threadIndex, fileName,
+                fileSize, fileRequest);
 
         this.fileRequest = fileRequest.newBuilder()
                 .header("Range", "bytes=" + startPosition + "-" + endPosition)
                 .build();
+
         Utils.log("startPosition = " + startPosition
                 + "--endPosition=" + endPosition + "threadIndex = " + threadIndex);
     }
 
     @Override
     public Boolean call() throws Exception {
-        FileResponse fileResponse = connection.connect(fileRequest);
-        if (fileResponse != null) {
-            InputStream inStream = fileResponse.getByteStream();
-            int errorCode = writeData(inStream);
+        if (startPosition >= endPosition) {
+            return true;
         }
-        return null;
+        FileResponse fileResponse = connection.connect(fileRequest);
+        InputStream inStream = fileResponse.getByteStream();
+        int errorCode = writeData(inStream);
+        if (errorCode == 0) {
+            return true;
+        }
+        return false;
     }
 
     public int getThreadIndex() {
@@ -56,21 +73,26 @@ public class DownloadCallable implements Callable<Boolean> {
     private int writeData(InputStream inStream) {
         int code = 0;
         RandomAccessFile partFile = null;
+        long start = System.currentTimeMillis();
         try {
             partFile = new RandomAccessFile(saveFile, "rws");
             partFile.seek(startPosition);
             byte[] buffer = new byte[BUFFER_SIZE];
             int len;
-            int totalLength = 0;
+            int downloadSize = 0;
             while ((len = inStream.read(buffer)) != -1) {
                 partFile.write(buffer, 0, len);
-                totalLength += len;
+                downloadSize += len;
+                breakPointManager.saveBreakPoint(threadIndex, downloadSize,
+                        saveFile.getAbsolutePath(), startPosition, endPosition, fileRequest);
             }
-            Utils.log("threadIndex=" + threadIndex + "---complete--" + totalLength);
+            Utils.log("threadIndex=" + threadIndex + "---complete--" + downloadSize
+                    + "--time = " + (System.currentTimeMillis() - start));
 
         } catch (Exception e) {
             e.printStackTrace();
             code = -1;
+            Utils.log("Exception");
 
         } finally {
             try {

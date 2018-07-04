@@ -66,4 +66,21 @@ public class Utils {
     public static void log(String msg) {
         System.out.println(msg);
     }
+
+    public static String mapToString(Map<String, List<String>> map) {
+        if (map == null || map.isEmpty()) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (Map.Entry<String, List<String>> entry : map.entrySet()) {
+            String key = entry.getKey();
+            List<String> values = entry.getValue();
+            if (values != null && !values.isEmpty()) {
+                for (String value : values) {
+                    sb.append(key).append(":").append(value);
+                }
+            }
+        }
+        return sb.toString();
+    }
 }

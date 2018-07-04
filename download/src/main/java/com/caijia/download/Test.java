@@ -11,9 +11,10 @@ public class Test {
                 .saveFileDirPath("E://")
                 .build();
         FileRequest fileRequest = new FileRequest.Builder()
-//                .url("http://localhost:8080/test.zip")
-                .url("http://localhost:8080/dd.gif")
+                .url("http://localhost:8080/test.jpg")
+//                .url("http://localhost:8080/app-release.apk")
                 .build();
         fileDownloader.download(fileRequest);
+
     }
 }

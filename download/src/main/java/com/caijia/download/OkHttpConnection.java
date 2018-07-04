@@ -31,7 +31,7 @@ public class OkHttpConnection implements Connection {
     }
 
     @Override
-    public FileResponse connect(FileRequest fileRequest) {
+    public FileResponse connect(FileRequest fileRequest) throws Exception {
         HttpUrl httpUrl = HttpUrl.parse(fileRequest.getUrl());
         if (httpUrl == null) {
             return null;
@@ -78,23 +78,19 @@ public class OkHttpConnection implements Connection {
         }
         Request request = headerBuilder.build();
 
-        try {
-            Response response = okHttpClient.newCall(request).execute();
-            String realDownloadUrl = response.request().url().toString();
-            ResponseBody body = response.body();
-            if (response.isSuccessful()) {
-                FileResponse fileResponse = new FileResponse();
-                fileResponse.setHeaders(response.headers().toMultimap());
-                fileResponse.setRealDownloadUrl(realDownloadUrl);
-                if (body != null) {
-                    fileResponse.setByteStream(body.byteStream());
-                }
-                return fileResponse;
+        Response response = okHttpClient.newCall(request).execute();
+        String realDownloadUrl = response.request().url().toString();
+        ResponseBody body = response.body();
+        if (response.isSuccessful()) {
+            FileResponse fileResponse = new FileResponse();
+            fileResponse.setHeaders(response.headers().toMultimap());
+            fileResponse.setRealDownloadUrl(realDownloadUrl);
+            if (body != null) {
+                fileResponse.setByteStream(body.byteStream());
             }
-        } catch (Exception e) {
-            e.printStackTrace();
+            return fileResponse;
         }
-        return null;
+        throw new RuntimeException(response.toString());
     }
 
     private RequestBody getFormBody(Map<String, List<String>> fieldParams) {
