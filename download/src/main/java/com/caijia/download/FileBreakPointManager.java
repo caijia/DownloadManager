@@ -1,6 +1,7 @@
 package com.caijia.download;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -11,7 +12,6 @@ public class FileBreakPointManager implements BreakPointManager {
 
     private RandomAccessFile accessFile;
     private ReentrantLock reentrantLock = new ReentrantLock();
-    private int writeFinishCount = 0;
     private File saveBreakPointFile;
 
     @Override
@@ -21,15 +21,7 @@ public class FileBreakPointManager implements BreakPointManager {
         reentrantLock.lock();
         try {
             accessFile.seek(threadIndex * 40);
-            accessFile.write((startPosition + downloadSize + "\n").getBytes());
-            if (downloadSize == (endPosition - startPosition + 1)) {
-                writeFinishCount++;
-                if (writeFinishCount == threadCount) {
-                    Utils.log("complete");
-                    accessFile.close();
-                    saveBreakPointFile.deleteOnExit();
-                }
-            }
+            accessFile.write((startPosition + downloadSize + "\r\n").getBytes());
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -43,17 +35,30 @@ public class FileBreakPointManager implements BreakPointManager {
                               int threadIndex, String fileName, long fileSize,
                               FileRequest fileRequest, int threadCount) {
         File parentFile = new File(saveFilePath).getParentFile();
-        String md5String = Utils.fileRequestToMd5String(fileRequest,threadCount);
-        saveBreakPointFile = new File(parentFile, md5String + ".temp");
+        String md5String = Utils.fileRequestToMd5String(fileRequest, threadCount);
+        saveBreakPointFile = new File(parentFile, md5String + ".txt");
         try {
-            accessFile = new RandomAccessFile(saveBreakPointFile, "rw");
+            if (accessFile == null) {
+                accessFile = new RandomAccessFile(saveBreakPointFile, "rw");
+            }
             accessFile.seek(threadIndex * 40);
             String length = accessFile.readLine();
-            return Long.parseLong(length);
-
+            if (!Utils.isEmpty(length)) {
+                return Long.parseLong(length);
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
         return startPosition;
+    }
+
+    @Override
+    public void release() {
+        try {
+            accessFile.close();
+            saveBreakPointFile.delete();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }

@@ -11,10 +11,35 @@ public class Test {
                 .saveFileDirPath("E://")
                 .build();
         FileRequest fileRequest = new FileRequest.Builder()
-                .url("http://localhost:8080/dd.gif")
+                .url("http://localhost:8080/timg.gif")
 //                .url("http://localhost:8080/app-release.apk")
+                .url("http://app.mi.com/download/532898")
                 .build();
-        fileDownloader.download(fileRequest);
+        fileDownloader.download(fileRequest,new DownloadListener() {
+            @Override
+            public void onStart(CallbackInfo state) {
+                System.out.println(state.toString());
+            }
 
+            @Override
+            public void onDownloading(CallbackInfo state) {
+                System.out.println(state.toString());
+            }
+
+            @Override
+            public void onComplete(CallbackInfo state) {
+                System.out.println(state.toString());
+            }
+
+            @Override
+            public void onPausing(CallbackInfo state) {
+                System.out.println(state.toString());
+            }
+
+            @Override
+            public void onPause(CallbackInfo state) {
+                System.out.println(state.toString());
+            }
+        });
     }
 }

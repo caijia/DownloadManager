@@ -7,7 +7,7 @@ import java.util.Map;
 /**
  * Created by cai.jia on 2018/6/27.
  */
-public class Utils {
+class Utils {
 
     public static boolean requiresRequestBody(String method) {
         return method.equals("POST")

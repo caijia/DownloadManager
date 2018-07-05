@@ -8,7 +8,11 @@ import java.util.concurrent.Callable;
 /**
  * Created by cai.jia on 2018/6/26.
  */
-public class DownloadCallable implements Callable<Boolean> {
+class DownloadCallable implements Callable<CallableResult> {
+
+    public static final int PAUSE = 1;
+    public static final int COMPLETE = 0;
+    public static final int ERROR = -1;
 
     private static final int BUFFER_SIZE = 1024 * 8;
 
@@ -20,6 +24,8 @@ public class DownloadCallable implements Callable<Boolean> {
     private long endPosition;
     private int threadCount;
     private BreakPointManager breakPointManager;
+    private long fileSize;
+    private CallableResult callableResult;
 
     public DownloadCallable(File saveFileDir, String fileName, long fileSize, Connection connection,
                             FileRequest fileRequest, int threadIndex, int threadCount,
@@ -29,6 +35,7 @@ public class DownloadCallable implements Callable<Boolean> {
         this.threadIndex = threadIndex;
         this.connection = connection;
         this.threadCount = threadCount;
+        this.fileSize = fileSize;
         this.breakPointManager = breakPointManager;
 
         long avgLength = fileSize / threadCount;
@@ -38,32 +45,48 @@ public class DownloadCallable implements Callable<Boolean> {
         saveFile = new File(saveFileDir, fileName);
         startPosition = breakPointManager.getBreakPoint(startPosition,
                 endPosition, saveFile.getAbsolutePath(), threadIndex, fileName,
-                fileSize, fileRequest,threadCount);
+                fileSize, fileRequest, threadCount);
 
         this.fileRequest = fileRequest.newBuilder()
                 .header("Range", "bytes=" + startPosition + "-" + endPosition)
                 .build();
+
+        callableResult = new CallableResult();
+        callableResult.setSaveFilePath(saveFile.getAbsolutePath());
 
         Utils.log("startPosition = " + startPosition
                 + "--endPosition=" + endPosition + "threadIndex = " + threadIndex);
     }
 
     @Override
-    public Boolean call() throws Exception {
+    public CallableResult call() {
         if (startPosition >= endPosition) {
-            return true;
+            callableResult.setState(COMPLETE);
+            return callableResult;
         }
-        FileResponse fileResponse = connection.connect(fileRequest);
-        InputStream inStream = fileResponse.getByteStream();
-        int errorCode = writeData(inStream);
-        if (errorCode == 0) {
-            return true;
+        try {
+            FileResponse fileResponse = connection.connect(fileRequest);
+            InputStream inStream = fileResponse.getByteStream();
+            int errorCode = writeData(inStream);
+            if (errorCode == 0) {
+                callableResult.setState(exit ? PAUSE : COMPLETE);
+                return callableResult;
+            }
+        } catch (Exception e) {
+
         }
-        return false;
+        callableResult.setState(ERROR);
+        return callableResult;
     }
 
     public int getThreadIndex() {
         return threadIndex;
+    }
+
+    private boolean exit;
+
+    public void exit(boolean exit){
+        this.exit = exit;
     }
 
     /**
@@ -75,27 +98,26 @@ public class DownloadCallable implements Callable<Boolean> {
     private int writeData(InputStream inStream) {
         int code = 0;
         RandomAccessFile partFile = null;
-        long start = System.currentTimeMillis();
         try {
             partFile = new RandomAccessFile(saveFile, "rw");
             partFile.seek(startPosition);
             byte[] buffer = new byte[BUFFER_SIZE];
             int len;
             int downloadSize = 0;
-            while ((len = inStream.read(buffer)) != -1) {
+            while (!exit && (len = inStream.read(buffer)) != -1) {
                 partFile.write(buffer, 0, len);
                 downloadSize += len;
                 breakPointManager.saveBreakPoint(threadIndex, downloadSize,
                         saveFile.getAbsolutePath(), startPosition, endPosition,
-                        fileRequest,threadCount);
+                        fileRequest, threadCount);
+
+                if (downloadProgressListener != null) {
+                    downloadProgressListener.downloadProgress(threadIndex,len,fileSize);
+                }
             }
-            Utils.log("threadIndex=" + threadIndex + "---complete--" + downloadSize
-                    + "--time = " + (System.currentTimeMillis() - start));
 
         } catch (Exception e) {
-            e.printStackTrace();
             code = -1;
-            Utils.log("Exception");
 
         } finally {
             try {
@@ -108,10 +130,20 @@ public class DownloadCallable implements Callable<Boolean> {
                 }
 
             } catch (Exception e) {
-                e.printStackTrace();
                 code = -1;
             }
         }
         return code;
+    }
+
+    private DownloadProgressListener downloadProgressListener;
+
+    public void setDownloadProgressListener(DownloadProgressListener downloadProgressListener) {
+        this.downloadProgressListener = downloadProgressListener;
+    }
+
+    public interface DownloadProgressListener{
+
+        void downloadProgress(int threadIndex,long downloadLength,long total);
     }
 }
