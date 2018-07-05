@@ -53,6 +53,7 @@ class DownloadCallable implements Callable<CallableResult> {
 
         callableResult = new CallableResult();
         callableResult.setSaveFilePath(saveFile.getAbsolutePath());
+        callableResult.setThreadIndex(threadIndex);
 
         Utils.log("startPosition = " + startPosition
                 + "--endPosition=" + endPosition + "threadIndex = " + threadIndex);
@@ -60,6 +61,7 @@ class DownloadCallable implements Callable<CallableResult> {
 
     @Override
     public CallableResult call() {
+        Utils.log("threadIndex = " + threadIndex + "running");
         if (startPosition >= endPosition) {
             callableResult.setState(COMPLETE);
             return callableResult;
@@ -72,8 +74,10 @@ class DownloadCallable implements Callable<CallableResult> {
                 callableResult.setState(exit ? PAUSE : COMPLETE);
                 return callableResult;
             }
-        } catch (Exception e) {
+            Utils.log("threadIndex = " + threadIndex + "http write error");
 
+        } catch (Exception e) {
+            Utils.log("threadIndex = " + threadIndex + "http connect error");
         }
         callableResult.setState(ERROR);
         return callableResult;
