@@ -13,6 +13,7 @@ import java.util.concurrent.FutureTask;
  */
 public class FileDownloader {
 
+    private static final float INTERVAL_DOWNLOAD = 500f;
     private Connection connection;
     private int threadCount = 3;
     private ExecutorService executorService;
@@ -20,6 +21,7 @@ public class FileDownloader {
     private String saveFileDirPath;
     private Schedule schedule;
     private List<DownloadCallable> downloadCallableList;
+    private List<FutureTask> downloadTasks;
     private BreakPointManager breakPointManager;
     private int pauseCount;
     private int completeCount;
@@ -29,7 +31,7 @@ public class FileDownloader {
     private boolean isPause;
     private long preComputeSpeedTime;
     private long preComputeSpeedLength;
-    private long preDownloadCallbackLength;
+    private float intervalDownload = INTERVAL_DOWNLOAD;
 
     private FileDownloader() {
 
@@ -41,7 +43,9 @@ public class FileDownloader {
         this.threadCount = builder.threadCount;
         this.saveFileDirPath = builder.saveFileDirPath;
         this.breakPointManager = builder.breakPointManager;
+        this.fileRequest = builder.fileRequest;
         this.schedule = builder.schedule;
+        this.intervalDownload = builder.intervalDownload;
         if (this.connection == null) {
             this.connection = new OkHttpConnection();
         }
@@ -54,21 +58,38 @@ public class FileDownloader {
             this.threadCount = 3;
         }
 
+        if (this.intervalDownload <= 0) {
+            intervalDownload = INTERVAL_DOWNLOAD;
+        }
+
+        if (Utils.isAndroidPlatform()) {
+            Utils.log("android platform");
+            this.schedule = new AndroidSchedule();
+        }
+
         if (Utils.isEmpty(saveFileDirPath)) {
             throw new RuntimeException("has not saveFileDirPath");
         }
 
         downloadCallableList = new ArrayList<>();
-        executorService = Executors.newCachedThreadPool();
+        downloadTasks = new ArrayList<>();
+    }
+
+    public void download(DownloadListener downloadListener) {
+        download(fileRequest, downloadListener);
     }
 
     public void download(FileRequest fileRequest, final DownloadListener downloadListener) {
+        if (fileRequest == null || Utils.isEmpty(fileRequest.getUrl())) {
+            throw new RuntimeException("please set " + FileRequest.class.getCanonicalName());
+        }
+
         if (!canDownload()) {
             return;
         }
+
         this.downloadListener = downloadListener;
-        reset();
-        callbackInfo.setState(DownloadState.START);
+        callbackInfo.setState(DownloadState.DOWNLOADING);
         callbackInfo.setStartTime(System.currentTimeMillis());
         Runnable r = new Runnable() {
             @Override
@@ -78,6 +99,8 @@ public class FileDownloader {
         };
         schedule(r);
         this.fileRequest = fileRequest;
+
+        reset();
         requestDownFileInfo();
     }
 
@@ -87,12 +110,17 @@ public class FileDownloader {
         completeCount = 0;
         preComputeSpeedTime = 0;
         preComputeSpeedLength = 0;
-        preDownloadCallbackLength = 0;
+        totalDownloadLength = 0;
+        downloadCallableList.clear();
+        downloadTasks.clear();
+        executorService = Executors.newCachedThreadPool();
     }
 
-    private boolean canDownload() {
-        return callbackInfo.getState() != DownloadState.DOWNLOADING
-                && callbackInfo.getState() != DownloadState.PAUSING;
+    public boolean canDownload() {
+        int state = callbackInfo.getState();
+        return state == DownloadState.COMPLETE ||
+                state == DownloadState.PAUSE ||
+                state == DownloadState.IDLE;
     }
 
     private void requestDownFileInfo() {
@@ -108,16 +136,23 @@ public class FileDownloader {
         FutureTask<FileResponse> task = new FutureTask<FileResponse>(callable) {
             @Override
             protected void done() {
-                try {
-                    FileResponse response = get();
-                    realDownload(response);
+                if (!isCancelled()) {
+                    try {
+                        FileResponse response = get();
+                        realDownload(response);
 
-                } catch (Exception e) {
-                    e.printStackTrace();
+                    } catch (Exception e) {
+                        Utils.log("thread request length -> error" + e.getMessage());
+                        pauseCallback();
+                    }
+
+                } else {
+                    Utils.log("thread request length -> cancelled");
                     pauseCallback();
                 }
             }
         };
+        downloadTasks.add(task);
         executorService.submit(task);
     }
 
@@ -157,10 +192,10 @@ public class FileDownloader {
                     threadCount, breakPointManager);
             downloadCallableList.add(callable);
             DownloadFutureTask task = new DownloadFutureTask(callable);
+            downloadTasks.add(task);
             executorService.submit(task);
         }
 
-        callbackInfo.setState(DownloadState.DOWNLOADING);
         callbackInfo.setFileSize(fileSize);
         callbackInfo.setDownloadPath(realDownloadUrl);
         Runnable r = new Runnable() {
@@ -174,34 +209,30 @@ public class FileDownloader {
 
     private void downloadLength(long downloadLength, long totalSize) {
         totalDownloadLength += downloadLength;
-        downloadingCallback(totalDownloadLength, totalSize);
         long currTime = System.currentTimeMillis();
-        if (currTime - preComputeSpeedTime > 1000) {
+        if (currTime - preComputeSpeedTime > intervalDownload ||
+                totalDownloadLength == totalSize) {
             if (preComputeSpeedTime != 0) {
                 long deltaTime = currTime - preComputeSpeedTime;
                 long deltaLength = totalDownloadLength - preComputeSpeedLength;
-                int speed = (int) (deltaLength / (deltaTime / 1000f)); //(b/s)
+                int speed = (int) (deltaLength / (deltaTime / intervalDownload)); //(b/s)
                 callbackInfo.setSpeed(speed);
+                callbackInfo.setDownloadSize(this.totalDownloadLength);
+                Runnable r = new Runnable() {
+                    @Override
+                    public void run() {
+                        downloadListener.onDownloading(callbackInfo);
+                    }
+                };
+                schedule(r);
             }
             preComputeSpeedTime = currTime;
             preComputeSpeedLength = totalDownloadLength;
         }
     }
 
-    private void downloadingCallback(long totalDownloadLength, long totalSize) {
-        long deltaLength = totalDownloadLength - preDownloadCallbackLength;
-        float progress = deltaLength * 1f / totalSize;
-        if (progress >= 0.01f || totalDownloadLength == totalSize) {
-            callbackInfo.setDownloadSize(this.totalDownloadLength);
-            Runnable r = new Runnable() {
-                @Override
-                public void run() {
-                    downloadListener.onDownloading(callbackInfo);
-                }
-            };
-            schedule(r);
-            preDownloadCallbackLength = totalDownloadLength;
-        }
+    private void appendPreviousDownloadLength(long previousDownloadLen) {
+        totalDownloadLength += previousDownloadLen;
     }
 
     private synchronized void tryPauseCallback() {
@@ -212,7 +243,6 @@ public class FileDownloader {
 
     private void pauseCallback() {
         executorService.shutdown();
-        computeTotalTime();
         callbackInfo.setState(DownloadState.PAUSE);
         Runnable r = new Runnable() {
             @Override
@@ -224,20 +254,25 @@ public class FileDownloader {
     }
 
     private synchronized void tryCompleteCallback(String saveFilePath) {
-        if (++completeCount == threadCount) {
-            computeTotalTime();
-            callbackInfo.setState(DownloadState.COMPLETE);
+        if (++completeCount + pauseCount == threadCount) {
+            executorService.shutdown();
+            final boolean hasPause = pauseCount > 0;
+            callbackInfo.setState(hasPause ? DownloadState.PAUSE : DownloadState.COMPLETE);
             callbackInfo.setSavePath(saveFilePath);
             Runnable r = new Runnable() {
                 @Override
                 public void run() {
-                    downloadListener.onComplete(callbackInfo);
+                    if (hasPause) {
+                        downloadListener.onComplete(callbackInfo);
+
+                    } else {
+                        downloadListener.onPause(callbackInfo);
+                    }
                 }
             };
             schedule(r);
 
-            executorService.shutdown();
-            if (breakPointManager != null) {
+            if (!hasPause) {
                 breakPointManager.release();
             }
         }
@@ -251,12 +286,14 @@ public class FileDownloader {
         }
     }
 
-    private void computeTotalTime() {
-        long totalTime = System.currentTimeMillis() - callbackInfo.getStartTime();
-        callbackInfo.setTotalTime(totalTime);
-    }
-
     public void pause() {
+        int state = callbackInfo.getState();
+        if (state == DownloadState.PAUSE ||
+                state == DownloadState.COMPLETE ||
+                state == DownloadState.PAUSING) {
+            return;
+        }
+
         this.isPause = true;
         callbackInfo.setState(DownloadState.PAUSING);
         Runnable r = new Runnable() {
@@ -268,6 +305,10 @@ public class FileDownloader {
         schedule(r);
         for (DownloadCallable callable : downloadCallableList) {
             callable.exit(true);
+        }
+
+        for (FutureTask downloadTask : downloadTasks) {
+            downloadTask.cancel(false);
         }
     }
 
@@ -283,6 +324,10 @@ public class FileDownloader {
 
         private Schedule schedule;
 
+        private FileRequest fileRequest;
+
+        private float intervalDownload;
+
         public Builder connection(Connection connection) {
             this.connection = connection;
             return this;
@@ -290,6 +335,11 @@ public class FileDownloader {
 
         public Builder threadCount(int threadCount) {
             this.threadCount = threadCount;
+            return this;
+        }
+
+        public Builder intervalDownload(float intervalDownload) {
+            this.intervalDownload = intervalDownload;
             return this;
         }
 
@@ -305,6 +355,11 @@ public class FileDownloader {
 
         public Builder schedule(Schedule schedule) {
             this.schedule = schedule;
+            return this;
+        }
+
+        public Builder fileRequest(FileRequest fileRequest) {
+            this.fileRequest = fileRequest;
             return this;
         }
 
@@ -325,35 +380,43 @@ public class FileDownloader {
                 public void downloadProgress(int threadIndex, long downloadLength, long total) {
                     downloadLength(downloadLength, total);
                 }
+
+                @Override
+                public void preDownloadLength(int threadIndex, long preDownloadLength) {
+                    appendPreviousDownloadLength(preDownloadLength);
+                }
             });
         }
 
         @Override
         protected void done() {
-            try {
-                CallableResult result = get();
-                Utils.log("threadIndex = " + result.getThreadIndex() + "done--state" + result.getState());
-                int state = result.getState();
-                switch (state) {
-                    case DownloadCallable.COMPLETE:
-                        tryCompleteCallback(result.getSaveFilePath());
-                        break;
+            if (!isCancelled()) {
+                try {
+                    CallableResult result = get();
+                    int state = result.getState();
+                    switch (state) {
+                        case DownloadCallable.COMPLETE:
+                            tryCompleteCallback(result.getSaveFilePath());
+                            break;
 
-                    case DownloadCallable.ERROR:
-                        tryPauseCallback();
-                        break;
+                        case DownloadCallable.ERROR:
+                            tryPauseCallback();
+                            break;
 
-                    case DownloadCallable.PAUSE:
-                        tryPauseCallback();
-                        break;
-                }
+                        case DownloadCallable.PAUSE:
+                            tryPauseCallback();
+                            break;
+                    }
+                    Utils.log(threadIndex, DownloadCallable.stateToString(state));
 
-            } catch (Exception e) {
-                Utils.log("threadIndex = " + threadIndex + "error");
-                e.printStackTrace();
-                if (isPause) {
+                } catch (Exception e) {
+                    Utils.log(threadIndex, "error");
                     tryPauseCallback();
                 }
+
+            } else {
+                Utils.log(threadIndex, "cancelled");
+                tryPauseCallback();
             }
         }
     }

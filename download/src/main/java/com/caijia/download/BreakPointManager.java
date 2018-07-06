@@ -6,7 +6,7 @@ package com.caijia.download;
 public interface BreakPointManager {
 
     void saveBreakPoint(int threadIndex, long downloadSize, String saveFilePath,
-                        long startPosition, long endPosition, FileRequest fileRequest,
+                        long currentPosition, long startPosition, long endPosition, FileRequest fileRequest,
                         int threadCount);
 
     long getBreakPoint(long startPosition, long endPosition, String saveFilePath,

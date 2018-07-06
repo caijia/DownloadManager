@@ -10,24 +10,29 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 public class FileBreakPointManager implements BreakPointManager {
 
-    private RandomAccessFile accessFile;
-    private ReentrantLock setLock = new ReentrantLock();
-    private ReentrantLock getLock = new ReentrantLock();
+    private static final int OFFSET = 40;
     private File saveBreakPointFile;
+    private RandomAccessFile writeFile;
+    private ReentrantLock writeLock = new ReentrantLock();
+    private ReentrantLock readLock = new ReentrantLock();
 
     @Override
     public void saveBreakPoint(int threadIndex, long downloadSize, String saveFilePath,
-                               long startPosition, long endPosition, FileRequest fileRequest,
-                               int threadCount) {
-        setLock.lock();
+                               long currentPosition, long startPosition, long endPosition,
+                               FileRequest fileRequest, int threadCount) {
+        writeLock.lock();
         try {
-            accessFile.seek(threadIndex * 40);
-            accessFile.write((startPosition + downloadSize + "\r\n").getBytes());
+            if (writeFile == null) {
+                writeFile = new RandomAccessFile(saveBreakPointFile, "rw");
+            }
+            writeFile.seek(threadIndex * OFFSET);
+            writeFile.write((currentPosition + downloadSize + "\r\n").getBytes());
 
         } catch (Exception e) {
             e.printStackTrace();
+
         } finally {
-            setLock.unlock();
+            writeLock.unlock();
         }
     }
 
@@ -35,23 +40,30 @@ public class FileBreakPointManager implements BreakPointManager {
     public long getBreakPoint(long startPosition, long endPosition, String saveFilePath,
                               int threadIndex, String fileName, long fileSize,
                               FileRequest fileRequest, int threadCount) {
-        getLock.lock();
+        readLock.lock();
+        RandomAccessFile accessFile = null;
         try {
             File parentFile = new File(saveFilePath).getParentFile();
             String md5String = Utils.fileRequestToMd5String(fileRequest, threadCount);
             saveBreakPointFile = new File(parentFile, md5String + ".txt");
-            if (accessFile == null) {
-                accessFile = new RandomAccessFile(saveBreakPointFile, "rw");
-            }
-            accessFile.seek(threadIndex * 40);
+            accessFile = new RandomAccessFile(saveBreakPointFile, "rw");
+            accessFile.seek(threadIndex * OFFSET);
             String length = accessFile.readLine();
-            if (!Utils.isEmpty(length)) {
+            if (!Utils.isEmpty(length) && length.matches("\\d+")) {
                 return Long.parseLong(length);
             }
         } catch (Exception e) {
             e.printStackTrace();
+
         } finally {
-            getLock.unlock();
+            if (accessFile != null) {
+                try {
+                    accessFile.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+            readLock.unlock();
         }
         return startPosition;
     }
@@ -59,7 +71,10 @@ public class FileBreakPointManager implements BreakPointManager {
     @Override
     public void release() {
         try {
-            accessFile.close();
+            if (writeFile != null) {
+                writeFile.close();
+                writeFile = null;
+            }
             saveBreakPointFile.delete();
         } catch (IOException e) {
             e.printStackTrace();

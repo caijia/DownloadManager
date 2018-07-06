@@ -1,5 +1,8 @@
 package com.caijia.download;
 
+import android.os.Build;
+import android.util.Log;
+
 import java.security.MessageDigest;
 import java.util.List;
 import java.util.Map;
@@ -8,14 +11,6 @@ import java.util.Map;
  * Created by cai.jia on 2018/6/27.
  */
 class Utils {
-
-    public static boolean requiresRequestBody(String method) {
-        return method.equals("POST")
-                || method.equals("PUT")
-                || method.equals("PATCH")
-                || method.equals("PROPPATCH")
-                || method.equals("REPORT");
-    }
 
     public static boolean permitsRequestBody(String method) {
         return !(method.equals("GET") || method.equals("HEAD"));
@@ -64,7 +59,16 @@ class Utils {
     }
 
     public static void log(String msg) {
-        System.out.println(msg);
+        if (isAndroidPlatform()) {
+            Log.d("fileDownloader", msg);
+
+        }else{
+            System.out.println(msg);
+        }
+    }
+
+    public static void log(int threadIndex, String msg) {
+        log("thread " + threadIndex + " -> " + msg);
     }
 
     public static String mapToString(Map<String, List<String>> map) {
@@ -85,13 +89,24 @@ class Utils {
     }
 
     public static String fileRequestToMd5String(FileRequest request, int threadCount) {
-        String sb = request.getUrl()
-                + request.getMethod()
-                + request.getBodyJsonString()
-                + mapToString(request.getQueryParams())
-                + mapToString(request.getFieldParams())
-                + mapToString(request.getHeaders())
-                + threadCount;
+        String sb = request.getUrl() +
+                request.getMethod() +
+                request.getBodyJsonString() +
+                mapToString(request.getQueryParams()) +
+                mapToString(request.getFieldParams()) +
+                mapToString(request.getHeaders()) +
+                threadCount;
         return getMD5(sb);
+    }
+
+    public static boolean isAndroidPlatform() {
+        try {
+            Class.forName("android.os.Build");
+            if (Build.VERSION.SDK_INT != 0) {
+                return true;
+            }
+        } catch (ClassNotFoundException ignored) {
+        }
+        return false;
     }
 }

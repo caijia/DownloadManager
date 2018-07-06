@@ -18,7 +18,6 @@ public class CallbackInfo {
     private int speed;
 
     private long startTime;
-    private long totalTime;
 
     public long getStartTime() {
         return startTime;
@@ -76,14 +75,6 @@ public class CallbackInfo {
         this.speed = speed;
     }
 
-    public long getTotalTime() {
-        return totalTime;
-    }
-
-    public void setTotalTime(long totalTime) {
-        this.totalTime = totalTime;
-    }
-
     @Override
     public String toString() {
         return "CallbackInfo{" +
@@ -93,8 +84,6 @@ public class CallbackInfo {
                 ", fileSize=" + fileSize +
                 ", downloadSize=" + downloadSize +
                 ", speed=" + speed +
-                ", startTime=" + startTime +
-                ", totalTime=" + totalTime +
                 '}';
     }
 }

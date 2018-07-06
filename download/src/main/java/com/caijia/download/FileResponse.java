@@ -37,7 +37,6 @@ public class FileResponse {
 
     public void setRealDownloadUrl(String realDownloadUrl) {
         this.realDownloadUrl = realDownloadUrl;
-        Utils.log(realDownloadUrl);
     }
 
     public long getContentLength() {
