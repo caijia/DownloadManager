@@ -40,6 +40,7 @@ public class MainActivity extends AppCompatActivity {
                 .threadCount(threadCount)
                 .saveFileDirPath(Environment.getExternalStorageDirectory().getAbsolutePath())
                 .fileRequest(fileRequest)
+                .debug(true)
                 .build();
 
 

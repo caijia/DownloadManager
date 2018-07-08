@@ -81,16 +81,14 @@ public class OkHttpConnection implements Connection {
         Response response = okHttpClient.newCall(request).execute();
         String realDownloadUrl = response.request().url().toString();
         ResponseBody body = response.body();
-        if (response.isSuccessful()) {
-            FileResponse fileResponse = new FileResponse();
-            fileResponse.setHeaders(response.headers().toMultimap());
-            fileResponse.setRealDownloadUrl(realDownloadUrl);
-            if (body != null) {
-                fileResponse.setByteStream(body.byteStream());
-            }
-            return fileResponse;
+        FileResponse fileResponse = new FileResponse();
+        fileResponse.setHeaders(response.headers().toMultimap());
+        fileResponse.setRealDownloadUrl(realDownloadUrl);
+        fileResponse.setHttpCode(response.code());
+        if (body != null) {
+            fileResponse.setByteStream(body.byteStream());
         }
-        throw new RuntimeException(response.toString());
+        return fileResponse;
     }
 
     private RequestBody getFormBody(Map<String, List<String>> fieldParams) {

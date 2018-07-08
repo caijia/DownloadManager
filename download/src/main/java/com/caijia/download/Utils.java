@@ -58,7 +58,10 @@ class Utils {
         return s == null || s.length() == 0;
     }
 
-    public static void log(String msg) {
+    public static void log(boolean debug,String msg) {
+        if (!debug) {
+            return;
+        }
         if (isAndroidPlatform()) {
             Log.d("fileDownloader", msg);
 
@@ -67,8 +70,8 @@ class Utils {
         }
     }
 
-    public static void log(int threadIndex, String msg) {
-        log("thread " + threadIndex + " -> " + msg);
+    public static void log(boolean debug,int threadIndex, String msg) {
+        log(debug,"thread " + threadIndex + " -> " + msg);
     }
 
     public static String mapToString(Map<String, List<String>> map) {

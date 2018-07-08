@@ -4,6 +4,8 @@ import java.io.File;
 import java.io.InputStream;
 import java.io.RandomAccessFile;
 import java.text.MessageFormat;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
 
 /**
@@ -17,25 +19,29 @@ class DownloadCallable implements Callable<CallableResult> {
 
     private static final int BUFFER_SIZE = 1024 * 8;
 
+    private File saveFileDir;
+    private String fileName;
+    private long fileSize;
+    private Connection connection;
     private FileRequest fileRequest;
     private int threadIndex;
+    private int threadCount;
+    private BreakPointManager breakPointManager;
+    private boolean debug;
+
     private File saveFile;
-    private Connection connection;
     private long currentPosition;
     private long startPosition;
     private long endPosition;
-    private int threadCount;
-    private BreakPointManager breakPointManager;
-    private long fileSize;
-    private String fileName;
     private CallableResult callableResult;
     private boolean exit;
     private DownloadProgressListener downloadProgressListener;
 
     public DownloadCallable(File saveFileDir, String fileName, long fileSize, Connection connection,
                             FileRequest fileRequest, int threadIndex, int threadCount,
-                            BreakPointManager breakPointManager) {
+                            BreakPointManager breakPointManager, boolean debug) {
 
+        this.saveFileDir = saveFileDir;
         this.fileRequest = fileRequest;
         this.threadIndex = threadIndex;
         this.connection = connection;
@@ -43,6 +49,8 @@ class DownloadCallable implements Callable<CallableResult> {
         this.fileSize = fileSize;
         this.fileName = fileName;
         this.breakPointManager = breakPointManager;
+        this.debug = debug;
+
         long avgLength = fileSize / threadCount;
         startPosition = threadIndex + threadIndex * avgLength;
         endPosition = threadIndex == threadCount - 1 ? fileSize - 1 : startPosition + avgLength;
@@ -51,8 +59,6 @@ class DownloadCallable implements Callable<CallableResult> {
         callableResult = new CallableResult();
         callableResult.setSaveFilePath(saveFile.getAbsolutePath());
         callableResult.setThreadIndex(threadIndex);
-
-
     }
 
     public static String stateToString(int state) {
@@ -61,7 +67,7 @@ class DownloadCallable implements Callable<CallableResult> {
 
     @Override
     public CallableResult call() {
-        Utils.log(threadIndex, "running");
+        Utils.log(debug, threadIndex, "running");
         currentPosition = breakPointManager.getBreakPoint(startPosition,
                 endPosition, saveFile.getAbsolutePath(), threadIndex, fileName,
                 fileSize, fileRequest, threadCount);
@@ -70,13 +76,13 @@ class DownloadCallable implements Callable<CallableResult> {
         if (downloadProgressListener != null) {
             downloadProgressListener.preDownloadLength(threadIndex, preDownloadLength);
         }
-        Utils.log(threadIndex, "previous download length = " + preDownloadLength);
+        Utils.log(debug, threadIndex, "previous download length = " + preDownloadLength);
 
         this.fileRequest = fileRequest.newBuilder()
                 .header("Range", "bytes=" + currentPosition + "-" + endPosition)
                 .build();
 
-        Utils.log(threadIndex, MessageFormat.format(
+        Utils.log(debug, threadIndex, MessageFormat.format(
                 "currentPosition={0}--endPosition={1}",
                 currentPosition, endPosition));
 
@@ -87,16 +93,21 @@ class DownloadCallable implements Callable<CallableResult> {
 
         try {
             FileResponse fileResponse = connection.connect(fileRequest);
-            InputStream inStream = fileResponse.getByteStream();
-            int errorCode = writeData(inStream);
-            if (errorCode == 0) {
-                callableResult.setState(exit ? PAUSE : COMPLETE);
-                return callableResult;
+            Utils.log(debug, threadIndex, "httpCode = " + fileResponse.getHttpCode());
+            if (fileResponse.isSuccessful()) {
+                InputStream inStream = fileResponse.getByteStream();
+                int errorCode = writeData(inStream);
+                if (errorCode == 0) {
+                    callableResult.setState(exit ? PAUSE : COMPLETE);
+                    return callableResult;
+
+                } else {
+                    Utils.log(debug, threadIndex, "error write data");
+                }
             }
-            Utils.log(threadIndex, "http write error");
 
         } catch (Exception e) {
-            Utils.log(threadIndex, "http connect error");
+            Utils.log(debug, threadIndex, "error connection");
         }
         callableResult.setState(ERROR);
         return callableResult;
@@ -120,6 +131,11 @@ class DownloadCallable implements Callable<CallableResult> {
         if (exit) {
             return 0;
         }
+
+        if (inStream == null) {
+            return -1;
+        }
+
         int code = 0;
         RandomAccessFile partFile = null;
         try {
@@ -148,10 +164,7 @@ class DownloadCallable implements Callable<CallableResult> {
                 if (partFile != null) {
                     partFile.close();
                 }
-
-                if (inStream != null) {
-                    inStream.close();
-                }
+                inStream.close();
 
             } catch (Exception e) {
                 code = -1;
@@ -162,6 +175,15 @@ class DownloadCallable implements Callable<CallableResult> {
 
     public void setDownloadProgressListener(DownloadProgressListener downloadProgressListener) {
         this.downloadProgressListener = downloadProgressListener;
+    }
+
+    public DownloadCallable newCallable() {
+        Map<String, List<String>> headers = fileRequest.getHeaders();
+        if (headers != null) {
+            headers.remove("Range");
+        }
+        return new DownloadCallable(saveFileDir, fileName, fileSize, connection, fileRequest,
+                threadIndex, threadCount, breakPointManager, debug);
     }
 
     public interface DownloadProgressListener {

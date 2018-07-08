@@ -15,7 +15,7 @@ public class CallbackInfo {
 
     private long downloadSize;
 
-    private int speed;
+    private long speed;
 
     private long startTime;
 
@@ -67,7 +67,7 @@ public class CallbackInfo {
         this.downloadSize = downloadSize;
     }
 
-    public int getSpeed() {
+    public long getSpeed() {
         return speed;
     }
 
@@ -79,11 +79,24 @@ public class CallbackInfo {
     public String toString() {
         return "CallbackInfo{" +
                 "downloadPath='" + downloadPath + '\'' +
-                ", state=" + state +
+                ", state=" + DownloadState.toName(state) +
                 ", savePath='" + savePath + '\'' +
                 ", fileSize=" + fileSize +
                 ", downloadSize=" + downloadSize +
-                ", speed=" + speed +
+                ", speed=" + formatSpeed(speed) +
                 '}';
+    }
+
+    public String formatSpeed(long speed){
+        if (speed < 1024) {
+            return speed + "B/s";
+
+        } else if (speed < 1024 * 1024) {
+            return speed / 1024 + "KB/s";
+
+        } else if (speed < 1024 * 1024 * 1024) {
+            return speed / (1024 * 1024) + "M/s";
+        }
+        return "0B/s";
     }
 }

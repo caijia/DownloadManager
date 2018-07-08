@@ -6,7 +6,7 @@ import android.os.Looper;
 /**
  * Created by cai.jia on 2018/7/5.
  */
-public class AndroidSchedule implements Schedule{
+public class AndroidSchedule implements Schedule {
 
     private Handler handler;
 

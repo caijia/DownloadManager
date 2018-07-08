@@ -14,6 +14,7 @@ public class FileResponse {
     private InputStream byteStream;
     private Map<String, List<String>> headers;
     private String realDownloadUrl;
+    private int httpCode;
 
     public InputStream getByteStream() {
         return byteStream;
@@ -37,6 +38,10 @@ public class FileResponse {
 
     public void setRealDownloadUrl(String realDownloadUrl) {
         this.realDownloadUrl = realDownloadUrl;
+    }
+
+    public boolean isSuccessful() {
+        return httpCode >= 200 && httpCode < 300;
     }
 
     public long getContentLength() {
@@ -65,5 +70,13 @@ public class FileResponse {
                     whatIndex == -1 ? realDownloadUrl.length() : whatIndex);
         }
         return Utils.getMD5(realDownloadUrl) + ".temp";//默认取一个文件名;
+    }
+
+    public int getHttpCode() {
+        return httpCode;
+    }
+
+    public void setHttpCode(int httpCode) {
+        this.httpCode = httpCode;
     }
 }
