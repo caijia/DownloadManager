@@ -151,13 +151,17 @@ public class FileDownloader {
                 if (!isCancelled()) {
                     try {
                         FileResponse response = get();
-                        Utils.log(debug, "httpCode = " + response.getHttpCode());
                         if (response.isSuccessful()) {
                             realDownload(response);
+
+                        }else{
+                            //重试
+                            Utils.log(debug, "retry http code =" + response.getHttpCode());
+                            retryRequestDownFileInfo(this);
                         }
 
                     } catch (Exception e) {
-                        Utils.log(debug, "error=" + e.getMessage());
+                        Utils.log(debug, "retry error=" + e.getMessage());
                         retryRequestDownFileInfo(this);
                     }
 

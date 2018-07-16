@@ -87,7 +87,7 @@ public class CallbackInfo {
                 '}';
     }
 
-    public String formatSpeed(long speed){
+    public String formatSpeed(long speed) {
         if (speed < 1024) {
             return speed + "B/s";
 

@@ -7,6 +7,7 @@ import android.text.TextUtils;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import com.caijia.download.CallbackInfo;
@@ -18,6 +19,7 @@ public class MainActivity extends AppCompatActivity {
 
     private TextView tvMsg;
     private EditText etThreadCount;
+    private ProgressBar progressBar;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -26,6 +28,7 @@ public class MainActivity extends AppCompatActivity {
 
         Button btnDownload = findViewById(R.id.btn_download);
         Button btnPause = findViewById(R.id.btn_pause);
+        progressBar = findViewById(R.id.progressBar);
         etThreadCount = findViewById(R.id.et_thread_count);
         tvMsg = findViewById(R.id.tv_msg);
 
@@ -68,10 +71,14 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onStart(CallbackInfo state) {
                 showMsg(state.toString());
+                progressBar.setMax(100);
             }
 
             @Override
             public void onDownloading(CallbackInfo state) {
+                int progress = state.getFileSize() > 0 ?
+                        (int) (state.getDownloadSize() * 100 / state.getFileSize()) : 0;
+                progressBar.setProgress(progress);
                 showMsg(state.toString());
             }
 
