@@ -36,10 +36,6 @@ public class FileDownloader {
     private long preComputeSpeedLength;
     private float intervalDownload = INTERVAL_DOWNLOAD;
     private boolean debug;
-    /**
-     * 线程下载的长度
-     */
-    private Map<Integer, Long> threadDownloadLenMap;
 
     private FileDownloader() {
 
@@ -47,7 +43,6 @@ public class FileDownloader {
 
     private FileDownloader(Builder builder) {
         callbackInfo = new CallbackInfo();
-        threadDownloadLenMap = new HashMap<>();
         this.connection = builder.connection;
         this.debug = builder.debug;
         int maxThreadCount = builder.maxThreadCount;
@@ -138,16 +133,8 @@ public class FileDownloader {
     private long computePreviousLength() {
         long total = 0;
         for (int i = 0; i < threadCount; i++) {
-            long length;
-            if (!threadDownloadLenMap.isEmpty()) {
-                Long value = threadDownloadLenMap.get(i);
-                length = value == null ? 0 : value;
-
-            } else {
-               length = breakPointManager.getDownloadLength(i, threadCount, saveFileDirPath,
-                        fileRequest);
-                threadDownloadLenMap.put(i, length);
-            }
+            long length = breakPointManager.getDownloadLength(i, threadCount, saveFileDirPath,
+                    fileRequest);
             total += length;
         }
         return total;
@@ -315,7 +302,6 @@ public class FileDownloader {
 
                     } else {
                         callbackInfo.setSavePath(saveFilePath);
-                        threadDownloadLenMap.clear();
                         downloadListener.onComplete(callbackInfo);
                     }
                 }
@@ -442,11 +428,6 @@ public class FileDownloader {
             callable.setDownloadProgressListener(new DownloadCallable.DownloadProgressListener() {
                 @Override
                 public void downloadProgress(int threadIndex, long downloadLength, long total) {
-                    Long preLen = threadDownloadLenMap.get(threadIndex);
-                    if (preLen == null) {
-                        preLen = 0L;
-                    }
-                    threadDownloadLenMap.put(threadIndex, downloadLength + preLen);
                     downloadLength(downloadLength, total);
                 }
             });
