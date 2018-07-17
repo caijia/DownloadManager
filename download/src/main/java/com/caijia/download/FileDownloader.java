@@ -2,7 +2,9 @@ package com.caijia.download;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -13,7 +15,7 @@ import java.util.concurrent.FutureTask;
  */
 public class FileDownloader {
 
-    private static final float INTERVAL_DOWNLOAD = 500f;
+    private static final float INTERVAL_DOWNLOAD = 1000f;
     private static final int MAX_THREAD_COUNT = 6;
     private Connection connection;
     private int threadCount = 3;
@@ -34,6 +36,10 @@ public class FileDownloader {
     private long preComputeSpeedLength;
     private float intervalDownload = INTERVAL_DOWNLOAD;
     private boolean debug;
+    /**
+     * 线程下载的长度
+     */
+    private Map<Integer, Long> threadDownloadLenMap;
 
     private FileDownloader() {
 
@@ -41,6 +47,7 @@ public class FileDownloader {
 
     private FileDownloader(Builder builder) {
         callbackInfo = new CallbackInfo();
+        threadDownloadLenMap = new HashMap<>();
         this.connection = builder.connection;
         this.debug = builder.debug;
         int maxThreadCount = builder.maxThreadCount;
@@ -122,10 +129,28 @@ public class FileDownloader {
         completeCount = 0;
         preComputeSpeedTime = 0;
         preComputeSpeedLength = 0;
-        totalDownloadLength = 0;
+        totalDownloadLength = computePreviousLength();
         downloadCallableList.clear();
         downloadTasks.clear();
         executorService = Executors.newCachedThreadPool();
+    }
+
+    private long computePreviousLength() {
+        long total = 0;
+        for (int i = 0; i < threadCount; i++) {
+            long length;
+            if (!threadDownloadLenMap.isEmpty()) {
+                Long value = threadDownloadLenMap.get(i);
+                length = value == null ? 0 : value;
+
+            } else {
+               length = breakPointManager.getDownloadLength(i, threadCount, saveFileDirPath,
+                        fileRequest);
+                threadDownloadLenMap.put(i, length);
+            }
+            total += length;
+        }
+        return total;
     }
 
     public boolean canDownload() {
@@ -154,8 +179,7 @@ public class FileDownloader {
                         if (response.isSuccessful()) {
                             realDownload(response);
 
-                        }else{
-                            //重试
+                        } else {
                             Utils.log(debug, "retry http code =" + response.getHttpCode());
                             retryRequestDownFileInfo(this);
                         }
@@ -260,10 +284,6 @@ public class FileDownloader {
         }
     }
 
-    private void appendPreviousDownloadLength(long previousDownloadLen) {
-        totalDownloadLength += previousDownloadLen;
-    }
-
     private synchronized void tryPauseCallback() {
         if (++pauseCount + completeCount == threadCount) {
             pauseCallback();
@@ -282,20 +302,21 @@ public class FileDownloader {
         schedule(r);
     }
 
-    private synchronized void tryCompleteCallback(String saveFilePath) {
+    private synchronized void tryCompleteCallback(final String saveFilePath) {
         if (++completeCount + pauseCount == threadCount) {
             executorService.shutdown();
             final boolean hasPause = pauseCount > 0;
             callbackInfo.setState(hasPause ? DownloadState.PAUSE : DownloadState.COMPLETE);
-            callbackInfo.setSavePath(saveFilePath);
             Runnable r = new Runnable() {
                 @Override
                 public void run() {
                     if (hasPause) {
-                        downloadListener.onComplete(callbackInfo);
+                        downloadListener.onPause(callbackInfo);
 
                     } else {
-                        downloadListener.onPause(callbackInfo);
+                        callbackInfo.setSavePath(saveFilePath);
+                        threadDownloadLenMap.clear();
+                        downloadListener.onComplete(callbackInfo);
                     }
                 }
             };
@@ -421,12 +442,12 @@ public class FileDownloader {
             callable.setDownloadProgressListener(new DownloadCallable.DownloadProgressListener() {
                 @Override
                 public void downloadProgress(int threadIndex, long downloadLength, long total) {
+                    Long preLen = threadDownloadLenMap.get(threadIndex);
+                    if (preLen == null) {
+                        preLen = 0L;
+                    }
+                    threadDownloadLenMap.put(threadIndex, downloadLength + preLen);
                     downloadLength(downloadLength, total);
-                }
-
-                @Override
-                public void preDownloadLength(int threadIndex, long preDownloadLength) {
-                    appendPreviousDownloadLength(preDownloadLength);
                 }
             });
         }

@@ -17,16 +17,15 @@ public class FileBreakPointManager implements BreakPointManager {
     private ReentrantLock readLock = new ReentrantLock();
 
     @Override
-    public void saveBreakPoint(int threadIndex, long downloadSize, String saveFilePath,
-                               long currentPosition, long startPosition, long endPosition,
-                               FileRequest fileRequest, int threadCount) {
+    public void saveDownloadLength(int threadIndex, int threadCount, long downloadSize,
+                                   String saveFileDir, FileRequest fileRequest) {
         writeLock.lock();
         try {
             if (writeFile == null) {
                 writeFile = new RandomAccessFile(saveBreakPointFile, "rw");
             }
             writeFile.seek(threadIndex * OFFSET);
-            writeFile.write((currentPosition + downloadSize + "\r\n").getBytes());
+            writeFile.write((downloadSize + "\r\n").getBytes());
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -37,15 +36,13 @@ public class FileBreakPointManager implements BreakPointManager {
     }
 
     @Override
-    public long getBreakPoint(long startPosition, long endPosition, String saveFilePath,
-                              int threadIndex, String fileName, long fileSize,
-                              FileRequest fileRequest, int threadCount) {
+    public long getDownloadLength(int threadIndex, int threadCount, String saveFileDir,
+                                  FileRequest fileRequest) {
         readLock.lock();
         RandomAccessFile accessFile = null;
         try {
-            File parentFile = new File(saveFilePath).getParentFile();
             String md5String = Utils.fileRequestToMd5String(fileRequest, threadCount);
-            saveBreakPointFile = new File(parentFile, md5String + ".txt");
+            saveBreakPointFile = new File(saveFileDir, md5String + ".txt");
             accessFile = new RandomAccessFile(saveBreakPointFile, "rw");
             accessFile.seek(threadIndex * OFFSET);
             String length = accessFile.readLine();
@@ -65,7 +62,7 @@ public class FileBreakPointManager implements BreakPointManager {
             }
             readLock.unlock();
         }
-        return startPosition;
+        return 0;
     }
 
     @Override

@@ -5,13 +5,33 @@ package com.caijia.download;
  */
 public interface BreakPointManager {
 
-    void saveBreakPoint(int threadIndex, long downloadSize, String saveFilePath,
-                        long currentPosition, long startPosition, long endPosition,
-                        FileRequest fileRequest, int threadCount);
+    /**
+     * 保存线程下载的长度
+     *
+     * @param threadIndex  线程索引
+     * @param threadCount  线程个数
+     * @param downloadSize 线程下载的总长度
+     * @param saveFileDir  下载保存目录
+     * @param fileRequest  下载请求链接
+     */
+    void saveDownloadLength(int threadIndex, int threadCount, long downloadSize,
+                            String saveFileDir, FileRequest fileRequest);
 
-    long getBreakPoint(long startPosition, long endPosition, String saveFilePath,
-                       int threadIndex, String fileName, long fileSize, FileRequest fileRequest,
-                       int threadCount);
+    /**
+     * 获取线程下载的长度
+     *
+     * @param threadIndex 线程索引
+     * @param threadCount 线程个数
+     * @param saveFileDir 下载保存目录
+     * @param fileRequest 下载请求链接
+     * @return 线程下载的总长度
+     */
+    long getDownloadLength(int threadIndex, int threadCount,
+                           String saveFileDir, FileRequest fileRequest);
 
+
+    /**
+     * 资源释放
+     */
     void release();
 }

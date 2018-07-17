@@ -5,18 +5,39 @@ package com.caijia.download;
  */
 public class CallbackInfo {
 
+    /**
+     * 文件下载路径,跟用户传过来的下载路径可能不一样,也许是重定向后的下载路径
+     */
     private String downloadPath;
 
+    /**
+     * 下载状态{@link DownloadState}
+     */
     private int state;
 
+    /**
+     * 保存的文件路径,只有当文件下载完后才有值,{@link #state}等于{@link DownloadState#COMPLETE}
+     */
     private String savePath;
 
+    /**
+     * 下载文件的总大小
+     */
     private long fileSize;
 
+    /**
+     * 当前下载的总大小
+     */
     private long downloadSize;
 
+    /**
+     * 下载的速度,单位是B/s，可以转换格式{@link #formatSpeed(long)}
+     */
     private long speed;
 
+    /**
+     * 下载开始的时间,单位ms
+     */
     private long startTime;
 
     public long getStartTime() {
