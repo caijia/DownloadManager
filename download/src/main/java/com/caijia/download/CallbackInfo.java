@@ -31,22 +31,9 @@ public class CallbackInfo {
     private long downloadSize;
 
     /**
-     * 下载的速度,单位是B/s，可以转换格式{@link #formatSpeed(long)}
+     * 下载的速度,单位是B/s，可以转换格式{@link Utils#formatSpeed(long)}
      */
     private long speed;
-
-    /**
-     * 下载开始的时间,单位ms
-     */
-    private long startTime;
-
-    public long getStartTime() {
-        return startTime;
-    }
-
-    public void setStartTime(long startTime) {
-        this.startTime = startTime;
-    }
 
     public String getDownloadPath() {
         return downloadPath;
@@ -104,20 +91,7 @@ public class CallbackInfo {
                 ", savePath='" + savePath + '\'' +
                 ", fileSize=" + fileSize +
                 ", downloadSize=" + downloadSize +
-                ", speed=" + formatSpeed(speed) +
+                ", speed=" + Utils.formatSpeed(speed) +
                 '}';
-    }
-
-    public String formatSpeed(long speed) {
-        if (speed < 1024) {
-            return speed + "B/s";
-
-        } else if (speed < 1024 * 1024) {
-            return speed / 1024 + "KB/s";
-
-        } else if (speed < 1024 * 1024 * 1024) {
-            return speed / (1024 * 1024) + "M/s";
-        }
-        return "0B/s";
     }
 }

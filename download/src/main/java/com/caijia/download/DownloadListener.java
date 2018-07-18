@@ -7,6 +7,8 @@ public interface DownloadListener {
 
     void onStart(CallbackInfo state);
 
+    void onPrepared(CallbackInfo state);
+
     void onDownloading(CallbackInfo state);
 
     void onComplete(CallbackInfo state);

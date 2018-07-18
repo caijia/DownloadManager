@@ -4,15 +4,17 @@ public class DownloadState {
 
     public static final int IDLE = 0;
 
-    public static final int PREPARED = 1;
+    public static final int START = 1;
 
-    public static final int DOWNLOADING = 2;
+    public static final int PREPARED = 2;
 
-    public static final int PAUSING = 3;
+    public static final int DOWNLOADING = 3;
 
-    public static final int PAUSE = 4;
+    public static final int PAUSING = 4;
 
-    public static final int COMPLETE = 5;
+    public static final int PAUSE = 5;
+
+    public static final int COMPLETE = 6;
 
     public static String toName(int state) {
         String name = "";

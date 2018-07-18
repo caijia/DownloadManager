@@ -75,9 +75,14 @@ public class MainActivity extends AppCompatActivity {
             }
 
             @Override
+            public void onPrepared(CallbackInfo state) {
+
+            }
+
+            @Override
             public void onDownloading(CallbackInfo state) {
                 int progress = state.getFileSize() > 0 ?
-                        (int) (state.getDownloadSize() * 100 / state.getFileSize()) : 0;
+                        (int) ((state.getDownloadSize() * 1f / state.getFileSize()) * 100) : 0;
                 progressBar.setProgress(progress);
                 showMsg(state.toString());
             }

@@ -4,6 +4,7 @@ import android.os.Build;
 import android.util.Log;
 
 import java.security.MessageDigest;
+import java.text.DecimalFormat;
 import java.util.List;
 import java.util.Map;
 
@@ -111,5 +112,19 @@ class Utils {
         } catch (ClassNotFoundException ignored) {
         }
         return false;
+    }
+
+    public static String formatSpeed(long speed) {
+        if (speed < 1024) {
+            return speed + "B/s";
+
+        } else if (speed < 1024 * 1024) {
+            return speed / 1024 + "KB/s";
+
+        } else if (speed < 1024 * 1024 * 1024) {
+            DecimalFormat df = new DecimalFormat("#.##");
+            return df.format(speed * 1f / (1024 * 1024)) + "M/s";
+        }
+        return "0B/s";
     }
 }

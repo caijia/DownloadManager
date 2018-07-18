@@ -2,9 +2,7 @@ package com.caijia.download;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -31,7 +29,7 @@ public class FileDownloader {
     private long totalDownloadLength;
     private CallbackInfo callbackInfo;
     private DownloadListener downloadListener;
-    private boolean isPause;
+    private boolean isPausing;
     private long preComputeSpeedTime;
     private long preComputeSpeedLength;
     private float intervalDownload = INTERVAL_DOWNLOAD;
@@ -103,8 +101,7 @@ public class FileDownloader {
         }
 
         this.downloadListener = downloadListener;
-        callbackInfo.setState(DownloadState.DOWNLOADING);
-        callbackInfo.setStartTime(System.currentTimeMillis());
+        callbackInfo.setState(DownloadState.START);
         Runnable r = new Runnable() {
             @Override
             public void run() {
@@ -119,7 +116,7 @@ public class FileDownloader {
     }
 
     private void reset() {
-        isPause = false;
+        isPausing = false;
         pauseCount = 0;
         completeCount = 0;
         preComputeSpeedTime = 0;
@@ -187,7 +184,7 @@ public class FileDownloader {
     }
 
     private void retryRequestDownFileInfo(FutureTask<FileResponse> task) {
-        if (isPause) {
+        if (isPausing) {
             pauseCallback();
             return;
         }
@@ -215,6 +212,17 @@ public class FileDownloader {
             return;
         }
 
+        callbackInfo.setFileSize(fileSize);
+        callbackInfo.setDownloadPath(realDownloadUrl);
+        callbackInfo.setState(DownloadState.PREPARED);
+        Runnable r = new Runnable() {
+            @Override
+            public void run() {
+                downloadListener.onPrepared(callbackInfo);
+            }
+        };
+        schedule(r);
+
         File saveFileDir = new File(saveFileDirPath);
         saveFileDir.mkdirs();
 
@@ -222,7 +230,7 @@ public class FileDownloader {
             threadCount = (int) fileSize;
         }
 
-        if (isPause) {
+        if (isPausing) {
             return;
         }
 
@@ -236,15 +244,14 @@ public class FileDownloader {
             executorService.submit(task);
         }
 
-        callbackInfo.setFileSize(fileSize);
-        callbackInfo.setDownloadPath(realDownloadUrl);
-        Runnable r = new Runnable() {
+        callbackInfo.setState(DownloadState.DOWNLOADING);
+        Runnable r1 = new Runnable() {
             @Override
             public void run() {
                 downloadListener.onDownloading(callbackInfo);
             }
         };
-        schedule(r);
+        schedule(r1);
     }
 
     private void downloadLength(long downloadLength, long totalSize) {
@@ -330,7 +337,7 @@ public class FileDownloader {
             return;
         }
 
-        this.isPause = true;
+        this.isPausing = true;
         callbackInfo.setState(DownloadState.PAUSING);
         Runnable r = new Runnable() {
             @Override
@@ -466,7 +473,7 @@ public class FileDownloader {
         }
 
         private void retry() {
-            if (isPause) {
+            if (isPausing) {
                 tryPauseCallback();
                 return;
             }
