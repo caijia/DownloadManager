@@ -6,6 +6,7 @@ import android.util.Log;
 import java.security.MessageDigest;
 import java.text.DecimalFormat;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -59,20 +60,20 @@ class Utils {
         return s == null || s.length() == 0;
     }
 
-    public static void log(boolean debug,String msg) {
+    public static void log(boolean debug, String msg) {
         if (!debug) {
             return;
         }
         if (isAndroidPlatform()) {
             Log.d("fileDownloader", msg);
 
-        }else{
+        } else {
             System.out.println(msg);
         }
     }
 
-    public static void log(boolean debug,int threadIndex, String msg) {
-        log(debug,"thread " + threadIndex + " -> " + msg);
+    public static void log(boolean debug, int threadIndex, String msg) {
+        log(debug, "thread " + threadIndex + " -> " + msg);
     }
 
     public static String mapToString(Map<String, List<String>> map) {
@@ -126,5 +127,15 @@ class Utils {
             return df.format(speed * 1f / (1024 * 1024)) + "M/s";
         }
         return "0B/s";
+    }
+
+    public static String formatTime(long time) {
+        long h = time / 60 / 60;
+        long m = time % 60 / 60;
+        long s = time % 60;
+        if (h == 0) {
+            return String.format(Locale.CHINESE, "%02d:%02d", m, s);
+        } else
+            return String.format(Locale.CHINESE, "%02d:%02d:%02d", h, m, s);
     }
 }

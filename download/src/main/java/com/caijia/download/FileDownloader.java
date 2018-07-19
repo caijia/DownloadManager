@@ -262,9 +262,14 @@ public class FileDownloader {
             if (preComputeSpeedTime != 0) {
                 long deltaTime = currTime - preComputeSpeedTime;
                 long deltaLength = totalDownloadLength - preComputeSpeedLength;
-                int speed = (int) (deltaLength / (deltaTime / 1000f)); //(b/s)
+                long speed = (long) (deltaLength / (deltaTime / 1000f)); //(b/s)
+                if (speed > 0) {
+                    long leftTime = (callbackInfo.getFileSize() - totalDownloadLength) / speed;
+                    callbackInfo.setLeftTime(leftTime);
+                }
                 callbackInfo.setSpeed(speed);
                 callbackInfo.setDownloadSize(this.totalDownloadLength);
+
                 Runnable r = new Runnable() {
                     @Override
                     public void run() {

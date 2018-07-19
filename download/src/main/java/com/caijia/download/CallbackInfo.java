@@ -35,6 +35,23 @@ public class CallbackInfo {
      */
     private long speed;
 
+    /**
+     * 预计下载完成剩余时间
+     */
+    private long leftTime;
+
+    public void setSpeed(long speed) {
+        this.speed = speed;
+    }
+
+    public long getLeftTime() {
+        return leftTime;
+    }
+
+    public void setLeftTime(long leftTime) {
+        this.leftTime = leftTime;
+    }
+
     public String getDownloadPath() {
         return downloadPath;
     }
@@ -79,8 +96,12 @@ public class CallbackInfo {
         return speed;
     }
 
-    public void setSpeed(int speed) {
-        this.speed = speed;
+    public String getFormatSpeed() {
+        return Utils.formatSpeed(speed);
+    }
+
+    public String getFormatLeftTime() {
+        return Utils.formatTime(leftTime);
     }
 
     @Override
