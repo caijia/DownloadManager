@@ -21,6 +21,7 @@ public class FileDownloader {
     private FileRequest fileRequest;
     private String saveFileDirPath;
     private Schedule schedule;
+    private boolean supportBreakPoint;
     private List<DownloadCallable> downloadCallableList;
     private List<FutureTask> downloadTasks;
     private BreakPointManager breakPointManager;
@@ -47,6 +48,7 @@ public class FileDownloader {
         this.threadCount = builder.threadCount;
         this.saveFileDirPath = builder.saveFileDirPath;
         this.breakPointManager = builder.breakPointManager;
+        this.supportBreakPoint = builder.supportBreakPoint;
         this.fileRequest = builder.fileRequest;
         this.schedule = builder.schedule;
         this.intervalDownload = builder.intervalDownload;
@@ -54,7 +56,7 @@ public class FileDownloader {
             this.connection = new OkHttpConnection();
         }
 
-        if (this.breakPointManager == null) {
+        if (supportBreakPoint && this.breakPointManager == null) {
             this.breakPointManager = new FileBreakPointManager();
         }
 
@@ -380,8 +382,15 @@ public class FileDownloader {
 
         private int maxThreadCount;
 
+        private boolean supportBreakPoint;
+
         public Builder connection(Connection connection) {
             this.connection = connection;
+            return this;
+        }
+
+        public Builder supportBreakPoint(boolean supportBreakPoint) {
+            this.supportBreakPoint = supportBreakPoint;
             return this;
         }
 

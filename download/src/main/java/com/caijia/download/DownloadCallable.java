@@ -67,8 +67,9 @@ class DownloadCallable implements Callable<CallableResult> {
     @Override
     public CallableResult call() {
         Utils.log(debug, threadIndex, "running");
-        long previousDownloadLength = breakPointManager.getDownloadLength(threadIndex,threadCount,
-                saveFileDir.getAbsolutePath(), fileRequest);
+        long previousDownloadLength = breakPointManager != null ?
+                breakPointManager.getDownloadLength(threadIndex,threadCount,
+                        saveFileDir.getAbsolutePath(), fileRequest) : 0;
         Utils.log(debug, threadIndex, "previous download length = " + previousDownloadLength);
 
         currentPosition = startPosition + previousDownloadLength;
@@ -141,8 +142,10 @@ class DownloadCallable implements Callable<CallableResult> {
             while (!exit && (len = inStream.read(buffer)) != -1) {
                 partFile.write(buffer, 0, len);
                 downloadSize += len;
-                breakPointManager.saveDownloadLength(threadIndex, threadCount, downloadSize,
-                        saveFileDir.getAbsolutePath(), fileRequest);
+                if (breakPointManager != null) {
+                    breakPointManager.saveDownloadLength(threadIndex, threadCount, downloadSize,
+                            saveFileDir.getAbsolutePath(), fileRequest);
+                }
 
                 if (downloadProgressListener != null) {
                     downloadProgressListener.downloadProgress(threadIndex, len, fileSize);

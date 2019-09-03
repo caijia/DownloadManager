@@ -1,6 +1,8 @@
 package com.caijia.download;
 
 import java.io.InputStream;
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -58,7 +60,13 @@ public class FileResponse {
         String disposition = Utils.getHeader("Content-Disposition", headers);
         if (!Utils.isEmpty(disposition)) {
             Matcher m = Pattern.compile(".*filename=(.*)").matcher(disposition.toLowerCase());
-            if (m.find()) return m.group(1);
+            if (m.find()) {
+                try {
+                    return URLDecoder.decode(m.group(1), "utf-8");
+                } catch (Exception e) {
+                    return m.group(1);
+                }
+            }
 
         } else {
             int pathIndex = realDownloadUrl.lastIndexOf("\\");
