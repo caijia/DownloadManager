@@ -132,8 +132,9 @@ public class FileDownloader {
     private long computePreviousLength() {
         long total = 0;
         for (int i = 0; i < threadCount; i++) {
-            long length = breakPointManager.getDownloadLength(i, threadCount, saveFileDirPath,
-                    fileRequest);
+            long length = breakPointManager != null ?
+                    breakPointManager.getDownloadLength(i, threadCount, saveFileDirPath,
+                            fileRequest) : 0;
             total += length;
         }
         return total;
@@ -322,7 +323,7 @@ public class FileDownloader {
             };
             schedule(r);
 
-            if (!hasPause) {
+            if (!hasPause && breakPointManager != null) {
                 breakPointManager.release();
             }
         }
