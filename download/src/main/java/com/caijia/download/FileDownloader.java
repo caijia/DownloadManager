@@ -204,7 +204,7 @@ public class FileDownloader {
         long fileSize = response.getContentLength();
         String fileName = response.getFileName();
         String realDownloadUrl = response.getRealDownloadUrl();
-
+        fileRequest = fileRequest.newBuilder().url(realDownloadUrl).build();
         if (fileSize < 0) {
             pauseCallback();
             return;
