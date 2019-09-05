@@ -11,7 +11,7 @@ allprojects {
 
 ```
 dependencies {
-	        implementation 'com.github.caijia:DownloadManager:0.1'
+	        implementation 'com.github.caijia:DownloadManager:0.23'
 	}
 ```
 
